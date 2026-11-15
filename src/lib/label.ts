@@ -23,7 +23,7 @@ export interface LabelResult {
   fat: number;
 }
 
-export type LabelErrorCode = "no_key" | "rate_limit" | "not_label" | "too_large" | "auth" | "invalid" | "upstream";
+export type LabelErrorCode = "no_key" | "rate_limit" | "busy" | "not_label" | "too_large" | "auth" | "invalid" | "upstream";
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 

@@ -37,6 +37,7 @@ async function prepareImage(file: File): Promise<{ data: string; mimeType: strin
 const ERR_KEY: Record<LabelErrorCode | "offline", string> = {
   no_key: "noKey",
   rate_limit: "rateLimit",
+  busy: "busy",
   not_label: "notLabel",
   too_large: "tooLarge",
   auth: "auth",

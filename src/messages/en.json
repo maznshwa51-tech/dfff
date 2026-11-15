@@ -248,7 +248,8 @@
       "tooLarge": "Image is too large",
       "auth": "Sign in to use label scanning",
       "generic": "Couldn't read the image. Enter the values manually.",
-      "invalidValues": "Values are missing or don't make sense"
+      "invalidValues": "Values are missing or don't make sense",
+      "busy": "Gemini is busy right now (high demand on the free tier). Try again in a minute or enter the values manually."
     }
   },
   "training": {
