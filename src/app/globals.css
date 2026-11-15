@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-field: var(--field);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-track: var(--track);
+  --color-brand: var(--brand);
+  --color-protein: var(--protein);
+  --color-carbs: var(--carbs);
+  --color-fat: var(--fat);
+  --font-sans: system-ui, -apple-system, "SF Arabic", "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+}
+
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --field: #f4f6f8;
+  --fg: #0f172a;
+  --muted: #64748b;
+  --line: #e5e8ec;
+  --track: #eceff3;
+  --brand: #0d9488;
+  /* ألوان البيانات: مفحوصة لعمى الألوان والتباين على خلفية البطاقة */
+  --protein: #0d9488;
+  --carbs: #b7791f;
+  --fat: #7c6cf2;
+  --kcal: #f97316;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b0f14;
+  --card: #141a22;
+  --field: #1b232d;
+  --fg: #e8edf3;
+  --muted: #8b98a9;
+  --line: #222b36;
+  --track: #222b36;
+  --brand: #2dd4bf;
+  --protein: #0f9e8f;
+  --carbs: #c27c0e;
+  --fat: #8b7cf6;
+  --kcal: #fb923c;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
