@@ -1,9 +1,10 @@
 // حسابات: المتوسط المتحرك، تجميع الأيام، السلاسل، التنبيهات، والاقتراحات
+// (دوال صافية بدون قاعدة بيانات، تشتغل في المتصفح وعلى السيرفر للتقرير)
 
 import { addDays, lastNDays } from "./dates";
-import type { Food, FoodEntry, Workout } from "./db";
-import { round1, type Macros } from "./food-match";
-import { computeTargets, resolveDayType, type DayType, type Settings, type Targets } from "./targets";
+import { round1, scaleMacros } from "./food-match";
+import { computeTargets, resolveDayType, type Targets } from "./targets";
+import type { DayType, Food, FoodEntry, Macros, Session, Settings } from "./types";
 
 export function sumMacros(items: Macros[]): Macros {
   const t = items.reduce(
@@ -13,15 +14,12 @@ export function sumMacros(items: Macros[]): Macros {
   return { kcal: Math.round(t.kcal), protein: round1(t.protein), carbs: round1(t.carbs), fat: round1(t.fat) };
 }
 
-/**
- * المتوسط المتحرك لآخر `window` أيام لكل يوم في `days`.
- * يُحسب من القياسات الموجودة فقط ضمن النافذة (الأيام بدون وزن تُتجاهل).
- */
-export function movingAverage(
-  weights: Map<string, number>,
-  days: string[],
-  window = 7,
-): (number | null)[] {
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+/** المتوسط المتحرك لآخر `window` أيام (من القياسات الموجودة فقط) */
+export function movingAverage(weights: Map<string, number>, days: string[], window = 7): (number | null)[] {
   return days.map((d) => {
     const vals: number[] = [];
     for (let i = 0; i < window; i++) {
@@ -32,8 +30,21 @@ export function movingAverage(
   });
 }
 
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+/** التغير في متوسط 7 أيام بين `end` وقبله بأسبوع (يحتاج 3 قياسات على الأقل بكل أسبوع) */
+export function weeklyAvgChange(weights: Map<string, number>, end: string): number | null {
+  const [prev, cur] = movingAverage(weights, [addDays(end, -7), end]);
+  if (prev == null || cur == null) return null;
+  const count = (e: string) => lastNDays(e, 7).filter((d) => weights.has(d)).length;
+  if (count(end) < 3 || count(addDays(end, -7)) < 3) return null;
+  return round2(cur - prev);
+}
+
+export interface RawData {
+  entries: FoodEntry[];
+  weights: Map<string, number>;
+  steps: Map<string, number>;
+  sessions: Map<string, Session>;
+  overrides: Map<string, DayType>;
 }
 
 export interface DaySummary extends Macros {
@@ -43,48 +54,33 @@ export interface DaySummary extends Macros {
   targets: Targets;
   steps: number | null;
   weight: number | null;
-  workouts: Workout[];
+  session?: Session;
+  workoutDone: boolean;
   cyclingKm: number;
 }
 
-export interface RawData {
-  entries: FoodEntry[];
-  weights: Map<string, number>;
-  steps: Map<string, number>;
-  workouts: Workout[];
-  overrides: Map<string, DayType>;
-}
-
-export function summarizeDays(days: string[], data: RawData, settings: Settings): DaySummary[] {
+export function summarizeDays(days: string[], data: RawData, s: Settings): DaySummary[] {
   const byDate = new Map<string, FoodEntry[]>();
   for (const e of data.entries) {
     const arr = byDate.get(e.date) ?? [];
     arr.push(e);
     byDate.set(e.date, arr);
   }
-  const wByDate = new Map<string, Workout[]>();
-  for (const w of data.workouts) {
-    const arr = wByDate.get(w.date) ?? [];
-    arr.push(w);
-    wByDate.set(w.date, arr);
-  }
   return days.map((date) => {
     const entries = byDate.get(date) ?? [];
-    const workouts = wByDate.get(date) ?? [];
-    const info = resolveDayType(date, settings, {
-      override: data.overrides.get(date),
-      hasWorkout: workouts.length > 0,
-    });
+    const session = data.sessions.get(date);
+    const info = resolveDayType(date, s, { override: data.overrides.get(date), session });
     return {
       date,
       ...sumMacros(entries),
       logged: entries.length > 0,
       dayType: info.type,
-      targets: computeTargets(info.type, settings),
+      targets: computeTargets(info.type, s),
       steps: data.steps.get(date) ?? null,
       weight: data.weights.get(date) ?? null,
-      workouts,
-      cyclingKm: round1(workouts.reduce((a, w) => a + (w.distanceKm ?? 0), 0)),
+      session,
+      workoutDone: !!session?.done && session.type !== "rest",
+      cyclingKm: session?.km ? round1(session.km) : 0,
     };
   });
 }
@@ -99,38 +95,30 @@ export interface PeriodStats {
   avgSteps: number | null;
   workoutDays: number;
   cyclingKm: number;
-  /** متوسط الوزن في الفترة */
   avgWeight: number | null;
 }
 
-/** المتوسطات تحسب فقط الأيام اللي سجلت فيها (عشان يوم ما سجلت فيه ما ينزّل المتوسط) */
+/** المتوسطات تحسب الأيام اللي سجلت فيها فقط */
 export function periodStats(days: DaySummary[]): PeriodStats {
   const logged = days.filter((d) => d.logged);
   const stepDays = days.filter((d) => d.steps != null);
   const weightDays = days.filter((d) => d.weight != null);
-  const a = (n: number | null, r = 0) => (n == null ? null : r ? round1(n) : Math.round(n));
+  const k = avg(logged.map((d) => d.kcal));
+  const p = avg(logged.map((d) => d.protein));
+  const st = avg(stepDays.map((d) => d.steps!));
+  const w = avg(weightDays.map((d) => d.weight!));
   return {
-    avgKcal: a(avg(logged.map((d) => d.kcal))),
-    avgProtein: a(avg(logged.map((d) => d.protein)), 1),
-    avgSteps: a(avg(stepDays.map((d) => d.steps!))),
-    workoutDays: days.filter((d) => d.workouts.length > 0).length,
-    cyclingKm: round1(days.reduce((s, d) => s + d.cyclingKm, 0)),
-    avgWeight: (() => {
-      const v = avg(weightDays.map((d) => d.weight!));
-      return v == null ? null : round2(v);
-    })(),
+    avgKcal: k == null ? null : Math.round(k),
+    avgProtein: p == null ? null : round1(p),
+    avgSteps: st == null ? null : Math.round(st),
+    workoutDays: days.filter((d) => d.workoutDone).length,
+    cyclingKm: round1(days.reduce((a, d) => a + d.cyclingKm, 0)),
+    avgWeight: w == null ? null : round2(w),
   };
 }
 
-/**
- * سلسلة الأيام المتتالية اللي وصلت فيها هدف البروتين، تنتهي باليوم `end`.
- * إذا اليوم نفسه لسا ما وصل للهدف، نبدأ العد من أمس (اليوم ما خلص).
- */
-export function proteinStreak(
-  proteinByDate: Map<string, number>,
-  end: string,
-  goal: number,
-): number {
+/** أيام متتالية وصلت فيها هدف البروتين. إذا اليوم لسا ما وصل نبدأ من أمس */
+export function proteinStreak(proteinByDate: Map<string, number>, end: string, goal: number): number {
   let d = end;
   if ((proteinByDate.get(d) ?? 0) < goal) d = addDays(d, -1);
   let n = 0;
@@ -155,107 +143,59 @@ export function topProteinFoods(entries: FoodEntry[], n = 5): { name: string; pr
     .slice(0, n);
 }
 
-// ---------- التنبيهات ----------
+// ---------- التنبيهات الصحية ----------
 
+export type AlertKind = "lowKcal" | "lowProtein" | "weightLoss";
 export interface HealthAlert {
   id: string;
+  kind: AlertKind;
   level: "info" | "warn";
-  title: string;
-  body: string;
+  /** اليوم أو أمس */
+  when: "today" | "yesterday";
+  value: number;
+  limit: number;
 }
 
-export const SNACK_IDEAS = [
-  "ساندويتش خبز أسمر مع لبنة أو جبن",
-  "موزة مع ملعقتين زبدة فول سوداني",
-  "زبادي مع شوفان وتمر",
-  "كوب حليب مع حفنة مكسرات",
-];
-
 /**
- * @param day ملخص اليوم المراد فحصه
  * @param dayEnded هل انتهى اليوم (أمس، أو اليوم بعد الساعة 9 بالليل)
- * @param weeklyChange التغير في متوسط الوزن (7 أيام) مقارنة بقبل أسبوع، سالب = نزول
+ * @param weeklyChange تغير متوسط الوزن عن الأسبوع الماضي (سالب = نزول)
  */
-export function healthAlerts(
-  day: DaySummary,
-  dayEnded: boolean,
-  weeklyChange: number | null,
-  s: Settings,
-  dayLabel = "اليوم",
-): HealthAlert[] {
+export function healthAlerts(day: DaySummary, dayEnded: boolean, weeklyChange: number | null, s: Settings, when: "today" | "yesterday"): HealthAlert[] {
   const out: HealthAlert[] = [];
   if (dayEnded && day.logged && day.kcal < s.lowKcalAlert) {
-    const idea = SNACK_IDEAS[new Date().getDate() % SNACK_IDEAS.length];
-    out.push({
-      id: `lowkcal-${day.date}`,
-      level: "warn",
-      title: `أكلك ${dayLabel} قليل 🍽️`,
-      body: `أكلت ${day.kcal} سعرة بس، وهذا قليل على رياضي جسمه لسا يكبر. جسمك يحتاج طاقة عشان يكبر ويتعافى من التمرين. جرّب وجبة خفيفة زي: ${idea}.`,
-    });
+    out.push({ id: `lowKcal-${day.date}`, kind: "lowKcal", level: "warn", when, value: day.kcal, limit: s.lowKcalAlert });
   }
-  if (day.logged && day.protein < s.lowProteinAlert && dayEnded) {
-    out.push({
-      id: `lowprotein-${day.date}`,
-      level: "info",
-      title: "تذكير بالبروتين 💪",
-      body: `البروتين ${dayLabel} ${day.protein} غ، أقل من ${s.lowProteinAlert} غ. البروتين يساعد عضلاتك تتعافى بعد الملاكمة.`,
-    });
+  if (dayEnded && day.logged && day.protein < s.lowProteinAlert) {
+    out.push({ id: `lowProtein-${day.date}`, kind: "lowProtein", level: "info", when, value: day.protein, limit: s.lowProteinAlert });
   }
   if (weeklyChange != null && weeklyChange < -s.weeklyLossAlertKg) {
-    out.push({
-      id: `weightloss-${day.date}`,
-      level: "warn",
-      title: "وزنك ينزل بسرعة ⚠️",
-      body: `متوسط وزنك نزل ${Math.abs(weeklyChange).toFixed(2)} كغ خلال أسبوع، وهذا أسرع من اللازم لعمرك. زِد أكلك شوي (مثلاً سناك إضافي كل يوم)، وإذا استمر كلّم أهلك أو طبيب.`,
-    });
+    out.push({ id: `weightLoss-${day.date}`, kind: "weightLoss", level: "warn", when, value: Math.abs(weeklyChange), limit: s.weeklyLossAlertKg });
   }
   return out;
 }
 
-/** التغير في المتوسط المتحرك (7 أيام) بين يوم `end` وقبله بأسبوع */
-export function weeklyAvgChange(weights: Map<string, number>, end: string): number | null {
-  const [prev, cur] = movingAverage(weights, [addDays(end, -7), end]);
-  if (prev == null || cur == null) return null;
-  // نحتاج على الأقل 3 قياسات في كل أسبوع عشان النتيجة تكون منطقية
-  const count = (e: string) => lastNDays(e, 7).filter((d) => weights.has(d)).length;
-  if (count(end) < 3 || count(addDays(end, -7)) < 3) return null;
-  return round2(cur - prev);
-}
-
-// ---------- اقتراح أكلة لتكملة البروتين ----------
+// ---------- اقتراح أكلة تكمّل البروتين ----------
 
 export interface Suggestion {
   food: Food;
-  grams: number;
-  label: string;
+  /** كمية مرجعية للعرض فقط (آخر كمية استخدمتها أو الكمية المرجعية). الكمية الفعلية تكتبها أنت */
+  amount: number;
   protein: number;
   kcal: number;
 }
 
-/**
- * يقترح أكلات من القاعدة المحلية تكمّل البروتين الناقص.
- * يفضّل الأكلات الغنية بالبروتين مقابل السعرات، واللي أكلتها قبل.
- */
-export function suggestProtein(
-  remainingProtein: number,
-  remainingKcal: number,
-  foods: Food[],
-  recentNames: Set<string>,
-  limit = 3,
-): Suggestion[] {
+export function suggestProtein(remainingProtein: number, remainingKcal: number, foods: Food[], recentIds: Set<string>, limit = 3): Suggestion[] {
   if (remainingProtein <= 3) return [];
   return foods
-    .filter((f) => f.serving && f.protein >= 8 && (f.protein * 4) / Math.max(f.kcal, 1) >= 0.3)
+    .filter((f) => f.refAmount > 0 && f.kcal > 0 && (f.protein * 4) / f.kcal >= 0.3 && f.protein / f.refAmount >= 0.06)
     .map((f) => {
-      const grams = f.serving!.grams;
-      const protein = round1((f.protein * grams) / 100);
-      const kcal = Math.round((f.kcal * grams) / 100);
-      // نقاط: كثافة البروتين + أكلتها قبل + قربها من الكمية الناقصة + ما تتجاوز السعرات المتبقية بكثير
+      const amount = f.lastAmount ?? f.refAmount;
+      const m = scaleMacros(f, amount, f.refAmount);
       const density = (f.protein * 4) / f.kcal;
-      const fit = 1 - Math.min(Math.abs(remainingProtein - protein) / Math.max(remainingProtein, 1), 1);
-      const kcalPenalty = remainingKcal > 0 && kcal > remainingKcal + 150 ? 0.5 : 0;
-      const score = density + fit * 0.6 + (recentNames.has(f.name) ? 0.5 : 0) - kcalPenalty;
-      return { food: f, grams, label: f.serving!.label, protein, kcal, score };
+      const fit = 1 - Math.min(Math.abs(remainingProtein - m.protein) / Math.max(remainingProtein, 1), 1);
+      const kcalPenalty = remainingKcal > 0 && m.kcal > remainingKcal + 150 ? 0.5 : 0;
+      const score = density + fit * 0.6 + (recentIds.has(f.id) ? 0.5 : 0) - kcalPenalty;
+      return { food: f, amount, protein: m.protein, kcal: m.kcal, score };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)

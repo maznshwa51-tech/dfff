@@ -5,48 +5,69 @@
 @theme {
   --color-bg: var(--bg);
   --color-card: var(--card);
+  --color-card2: var(--card-2);
   --color-field: var(--field);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-track: var(--track);
-  --color-brand: var(--brand);
+  --color-seg: var(--seg);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
   --color-protein: var(--protein);
   --color-carbs: var(--carbs);
   --color-fat: var(--fat);
-  --font-sans: system-ui, -apple-system, "SF Arabic", "Segoe UI", "Noto Sans Arabic", Tahoma, sans-serif;
+  --color-kcal: var(--kcal);
+  --font-sans: var(--font-inter), var(--font-plex), system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  --shadow-soft: var(--shadow);
 }
 
+/* الوضع الفاتح */
 :root {
-  --bg: #f4f6f8;
+  --bg: #f6f5f2;
   --card: #ffffff;
-  --field: #f4f6f8;
-  --fg: #0f172a;
-  --muted: #64748b;
-  --line: #e5e8ec;
-  --track: #eceff3;
-  --brand: #0d9488;
-  /* ألوان البيانات: مفحوصة لعمى الألوان والتباين على خلفية البطاقة */
-  --protein: #0d9488;
-  --carbs: #b7791f;
-  --fat: #7c6cf2;
-  --kcal: #f97316;
+  --card-2: #faf9f6;
+  --field: #f1efea;
+  --fg: #16150f;
+  --muted: #6e6d68;
+  --line: rgb(0 0 0 / 0.07);
+  --track: #ebe8e1;
+  --seg: #ffffff;
+  --gold: #9a7425;
+  --gold-ink: #ffffff;
+  --success: #1f9d55;
+  --danger: #d23f3f;
+  /* ألوان البيانات (مفحوصة لعمى الألوان والتباين) */
+  --protein: #94701f;
+  --carbs: #2a74b8;
+  --fat: #c4506a;
+  --kcal: #3a3934;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 30px -12px rgb(0 0 0 / 0.12);
   color-scheme: light;
 }
 
+/* الوضع الداكن: خلفية عميقة قريبة من الأسود وذهبي هادئ */
 .dark {
-  --bg: #0b0f14;
-  --card: #141a22;
-  --field: #1b232d;
-  --fg: #e8edf3;
-  --muted: #8b98a9;
-  --line: #222b36;
-  --track: #222b36;
-  --brand: #2dd4bf;
-  --protein: #0f9e8f;
-  --carbs: #c27c0e;
-  --fat: #8b7cf6;
-  --kcal: #fb923c;
+  --bg: #0a0a0b;
+  --card: #151517;
+  --card-2: #1b1b1e;
+  --field: #1f1f23;
+  --fg: #f4f2ee;
+  --muted: #8d8c93;
+  --line: rgb(255 255 255 / 0.07);
+  --track: #26262b;
+  --seg: #34343a;
+  --gold: #d4af6a;
+  --gold-ink: #1a1408;
+  --success: #34c77b;
+  --danger: #ff6b6b;
+  --protein: #b38a36;
+  --carbs: #3f8fd6;
+  --fat: #d9667c;
+  --kcal: #e6e3dc;
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -14px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
 
@@ -60,6 +81,13 @@ body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  font-feature-settings: "cv11", "ss01";
+}
+
+.num {
+  font-family: var(--font-inter), var(--font-plex), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 input[type="number"] {
@@ -69,4 +97,9 @@ input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }

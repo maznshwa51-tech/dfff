@@ -1,12 +1,12 @@
 // Service Worker: يخلي التطبيق يشتغل بدون إنترنت
 // - الصفحات: من الشبكة أولاً، وإذا ما فيه إنترنت من الكاش
 // - ملفات Next الثابتة (/_next/static): من الكاش أولاً (أسماؤها تتغير مع كل بناء)
-// - /api: من الشبكة فقط (الذكاء الاصطناعي يحتاج إنترنت)
+// - /api: من الشبكة فقط (Gemini والتقارير تحتاج إنترنت)
 
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGES_CACHE = `pages-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
-const ROUTES = ["/", "/food", "/activity", "/weight", "/stats", "/settings"];
+const ROUTES = ["/", "/food", "/training", "/weight", "/stats", "/settings"];
 const EXTRA = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 async function precache() {

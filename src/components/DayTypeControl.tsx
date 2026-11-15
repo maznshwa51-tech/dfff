@@ -1,49 +1,49 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
+import { useTranslations } from "next-intl";
 import { getDb } from "@/lib/db";
-import { resolveDayType, type DayType, type Settings } from "@/lib/targets";
+import { useWorkoutName } from "@/lib/hooks";
+import { putRow, removeRow } from "@/lib/repo";
+import { resolveDayType } from "@/lib/targets";
+import type { DayType, Settings } from "@/lib/types";
 import { Segmented } from "./ui";
 
-const SOURCE_LABEL = {
-  manual: "غيّرته يدوياً",
-  workout: "فيه تمرين مسجل",
-  schedule: "حسب جدولك",
-  default: "ما فيه تمرين بالجدول",
-};
-
-/** يعرض نوع اليوم (تمرين/راحة) ويسمح بتغييره يدوياً */
+/** نوع اليوم (تمرين/راحة) مع إمكانية تغييره يدوياً */
 export function DayTypeControl({ date, settings }: { date: string; settings: Settings }) {
+  const t = useTranslations("dayType");
+  const wname = useWorkoutName();
   const data = useLiveQuery(async () => {
     const db = getDb();
-    const [override, workouts] = await Promise.all([db.dayTypes.get(date), db.workouts.where("date").equals(date).count()]);
-    return { override: override?.type, hasWorkout: workouts > 0 };
+    const [o, session] = await Promise.all([db.dayTypes.get(date), db.sessions.get(date)]);
+    return { override: o?.type, session };
   }, [date]);
   if (!data) return null;
   const info = resolveDayType(date, settings, data);
 
-  const set = async (t: DayType) => {
-    const auto = resolveDayType(date, settings, { hasWorkout: data.hasWorkout });
-    if (t === auto.type) await getDb().dayTypes.delete(date); // رجع للتلقائي
-    else await getDb().dayTypes.put({ date, type: t });
+  const set = async (type: DayType) => {
+    const auto = resolveDayType(date, settings, { session: data.session });
+    if (type === auto.type) await removeRow("dayTypes", date);
+    else await putRow("dayTypes", { id: date, date, type });
   };
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <Segmented
+        label={t("title")}
         value={info.type}
         onChange={set}
         options={[
-          { id: "training", label: "🥊 يوم تمرين" },
-          { id: "rest", label: "😌 يوم راحة" },
+          { id: "training", label: t("training") },
+          { id: "rest", label: t("rest") },
         ]}
       />
       <p className="text-xs text-muted">
-        {SOURCE_LABEL[info.source]}
-        {info.scheduled ? ` · بالجدول: ${info.scheduled}` : ""}
+        {t(info.source)}
+        {info.scheduled !== "rest" ? ` · ${t("scheduled", { name: wname(info.scheduled) })}` : ""}
         {info.source === "manual" && (
-          <button className="ms-2 text-brand underline" onClick={() => getDb().dayTypes.delete(date)}>
-            رجّعه تلقائي
+          <button className="ms-2 font-semibold text-gold" onClick={() => removeRow("dayTypes", date)}>
+            {t("backToAuto")}
           </button>
         )}
       </p>

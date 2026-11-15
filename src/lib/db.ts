@@ -1,149 +1,80 @@
 import Dexie, { type EntityTable } from "dexie";
-import { SEED_FOODS } from "./foods-seed";
-import type { DayType, Settings } from "./targets";
-import type { Macros } from "./food-match";
+import type {
+  Category,
+  DayTypeOverride,
+  Favorite,
+  Food,
+  FoodEntry,
+  Session,
+  Settings,
+  StepsEntry,
+  SyncedTable,
+  WaistEntry,
+  WeightEntry,
+  WorkoutType,
+} from "./types";
 
-export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
-export const MEALS: { id: Meal; label: string }[] = [
-  { id: "breakfast", label: "فطور" },
-  { id: "lunch", label: "غداء" },
-  { id: "dinner", label: "عشاء" },
-  { id: "snack", label: "سناك" },
-];
-
-export interface Food extends Macros {
-  id?: number;
-  name: string;
-  aliases?: string[];
-  serving?: { grams: number; label: string };
-  source: "seed" | "ai" | "custom";
+/** تغيير محلي ينتظر الرفع للسيرفر */
+export interface OutboxItem {
+  table: SyncedTable;
+  id: string;
+  op: "put" | "delete";
+  ts: number;
 }
 
-export interface FoodEntry extends Macros {
-  id?: number;
-  date: string;
-  meal: Meal;
-  name: string;
-  grams: number;
-  foodId?: number;
-  createdAt: number;
+export interface MetaRow {
+  key: string;
+  value: unknown;
 }
-
-export interface WeightEntry {
-  date: string;
-  kg: number;
-}
-export interface WaistEntry {
-  date: string;
-  cm: number;
-}
-export interface StepsEntry {
-  date: string;
-  count: number;
-}
-
-export type Intensity = "light" | "medium" | "high";
-export const INTENSITIES: { id: Intensity; label: string }[] = [
-  { id: "light", label: "خفيف" },
-  { id: "medium", label: "متوسط" },
-  { id: "high", label: "عالي" },
-];
-
-export interface Workout {
-  id?: number;
-  date: string;
-  type: string;
-  durationMin: number;
-  intensity: Intensity;
-  distanceKm?: number;
-  notes?: string;
-  createdAt: number;
-}
-
-export interface WorkoutType {
-  id?: number;
-  name: string;
-  hasDistance: boolean;
-}
-
-export interface FavoriteItem extends Macros {
-  name: string;
-  grams: number;
-  foodId?: number;
-}
-export interface Favorite {
-  id?: number;
-  name: string;
-  items: FavoriteItem[];
-  createdAt: number;
-}
-
-export interface DayTypeOverride {
-  date: string;
-  type: DayType;
-}
-
-export interface SettingsRow {
-  key: "settings";
-  value: Partial<Settings>;
-}
-
-export const DEFAULT_WORKOUT_TYPES: WorkoutType[] = [
-  { name: "ملاكمة", hasDistance: false },
-  { name: "سبار", hasDistance: false },
-  { name: "سيكل", hasDistance: true },
-  { name: "ضغط", hasDistance: false },
-  { name: "تمرين بيت", hasDistance: false },
-];
 
 export class AppDB extends Dexie {
+  categories!: EntityTable<Category, "id">;
   foods!: EntityTable<Food, "id">;
   entries!: EntityTable<FoodEntry, "id">;
-  weights!: EntityTable<WeightEntry, "date">;
-  waists!: EntityTable<WaistEntry, "date">;
-  steps!: EntityTable<StepsEntry, "date">;
-  workouts!: EntityTable<Workout, "id">;
+  weights!: EntityTable<WeightEntry, "id">;
+  waists!: EntityTable<WaistEntry, "id">;
+  steps!: EntityTable<StepsEntry, "id">;
+  sessions!: EntityTable<Session, "id">;
   workoutTypes!: EntityTable<WorkoutType, "id">;
+  dayTypes!: EntityTable<DayTypeOverride, "id">;
   favorites!: EntityTable<Favorite, "id">;
-  dayTypes!: EntityTable<DayTypeOverride, "date">;
-  settings!: EntityTable<SettingsRow, "key">;
+  settings!: EntityTable<Settings, "id">;
+  outbox!: Dexie.Table<OutboxItem, [string, string]>;
+  meta!: EntityTable<MetaRow, "key">;
 
-  constructor(name = "lyaqa") {
+  constructor(name = "lyaqa-v2") {
     super(name);
     this.version(1).stores({
-      foods: "++id, name, source",
-      entries: "++id, date, meal, name, [date+meal]",
-      weights: "&date",
-      waists: "&date",
-      steps: "&date",
-      workouts: "++id, date, type",
-      workoutTypes: "++id, &name",
-      favorites: "++id, name",
-      dayTypes: "&date",
-      settings: "&key",
-    });
-    this.on("populate", (tx) => {
-      tx.table("foods").bulkAdd(SEED_FOODS.map((f) => ({ ...f, source: "seed" })));
-      tx.table("workoutTypes").bulkAdd(DEFAULT_WORKOUT_TYPES);
+      categories: "id, order",
+      foods: "id, categoryId, name",
+      entries: "id, date, foodId",
+      weights: "id, date",
+      waists: "id, date",
+      steps: "id, date",
+      sessions: "id, date",
+      workoutTypes: "id",
+      dayTypes: "id, date",
+      favorites: "id",
+      settings: "id",
+      outbox: "[table+id], ts",
+      meta: "key",
     });
   }
 }
-
-export const TABLES = [
-  "foods",
-  "entries",
-  "weights",
-  "waists",
-  "steps",
-  "workouts",
-  "workoutTypes",
-  "favorites",
-  "dayTypes",
-  "settings",
-] as const;
 
 let _db: AppDB | null = null;
 export function getDb(): AppDB {
   if (!_db) _db = new AppDB();
   return _db;
+}
+/** للاختبارات */
+export function setDb(db: AppDB) {
+  _db = db;
+}
+
+export async function getMeta<T>(db: AppDB, key: string): Promise<T | undefined> {
+  return (await db.meta.get(key))?.value as T | undefined;
+}
+export async function setMeta(db: AppDB, key: string, value: unknown) {
+  await db.meta.put({ key, value });
 }

@@ -1,39 +1,16 @@
-// الملف الشخصي، جدول التمرين، ونوع اليوم، والأهداف اليومية
+// الإعدادات الافتراضية، نوع اليوم، والأهداف اليومية
 
 import { weekday } from "./dates";
-
-export type DayType = "training" | "rest";
-
-export interface Settings {
-  profile: {
-    age: number;
-    heightCm: number;
-    startWeightKg: number;
-    sport: string;
-  };
-  /** مفتاح = رقم اليوم (0 الأحد ... 6 السبت)، القيمة = اسم التمرين المجدول */
-  schedule: Record<number, string>;
-  kcalTraining: number;
-  kcalRest: number;
-  proteinG: number;
-  /** نسبة الدهون من السعرات (0.25 = 25%) */
-  fatPct: number;
-  stepsGoal: number;
-  /** تنبيه إذا السعرات في نهاية اليوم أقل من هذا */
-  lowKcalAlert: number;
-  /** تذكير إذا البروتين أقل من هذا */
-  lowProteinAlert: number;
-  /** تنبيه إذا متوسط الوزن نزل أكثر من هذا بالأسبوع */
-  weeklyLossAlertKg: number;
-  theme: "system" | "light" | "dark";
-}
+import type { DayType, Session, Settings } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
+  id: "settings",
   profile: { age: 14, heightCm: 174, startWeightKg: 75, sport: "ملاكمة" },
-  // السبت والثلاثاء ملاكمة، الخميس سبار، الجمعة سيكل
-  schedule: { 6: "ملاكمة", 2: "ملاكمة", 4: "سبار", 5: "سيكل" },
-  kcalTraining: 1900,
-  kcalRest: 1700,
+  // السبت والثلاثاء ملاكمة، الخميس سبار، الجمعة سيكل، الأحد والأربعاء تمرين البيت، الإثنين راحة
+  schedule: { 6: "boxing", 2: "boxing", 4: "sparring", 5: "cycling", 0: "home", 3: "home", 1: "rest" },
+  homeRounds: 3,
+  kcalTraining: 2150,
+  kcalRest: 1900,
   proteinG: 110,
   fatPct: 0.25,
   stepsGoal: 10000,
@@ -41,41 +18,51 @@ export const DEFAULT_SETTINGS: Settings = {
   lowProteinAlert: 80,
   weeklyLossAlertKg: 0.5,
   theme: "system",
+  locale: "ar",
+  defaultUnit: "g",
+  report: { enabled: true, time: "21:30", timezone: "Asia/Dubai", channel: "email" },
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...(stored ?? {}),
+    id: "settings",
     profile: { ...DEFAULT_SETTINGS.profile, ...(stored?.profile ?? {}) },
-    schedule: stored?.schedule ?? DEFAULT_SETTINGS.schedule,
+    schedule: { ...DEFAULT_SETTINGS.schedule, ...(stored?.schedule ?? {}) },
+    report: { ...DEFAULT_SETTINGS.report, ...(stored?.report ?? {}) },
   };
+}
+
+export function scheduledType(date: string, s: Settings): string {
+  return s.schedule[weekday(date)] ?? "rest";
 }
 
 export interface DayTypeInfo {
   type: DayType;
-  /** سبب التحديد */
-  source: "manual" | "workout" | "schedule" | "default";
-  scheduled?: string;
+  source: "manual" | "workout" | "changed" | "schedule" | "default";
+  /** id نوع التمرين المجدول (أو rest) */
+  scheduled: string;
 }
 
 /**
  * ترتيب الأولوية:
  * 1. تغيير يدوي لهذا اليوم
- * 2. فيه تمرين مسجل ← يوم تمرين
+ * 2. غيّرت تمرين اليوم لراحة ← راحة، أو خلصت تمرين ← يوم تمرين
  * 3. جدول الأسبوع
  * 4. راحة
  */
 export function resolveDayType(
-  dateKey: string,
-  settings: Settings,
-  opts: { override?: DayType; hasWorkout?: boolean },
+  date: string,
+  s: Settings,
+  opts: { override?: DayType; session?: Pick<Session, "type" | "done"> },
 ): DayTypeInfo {
-  const scheduled = settings.schedule[weekday(dateKey)];
+  const scheduled = scheduledType(date, s);
   if (opts.override) return { type: opts.override, source: "manual", scheduled };
-  if (opts.hasWorkout) return { type: "training", source: "workout", scheduled };
-  if (scheduled) return { type: "training", source: "schedule", scheduled };
-  return { type: "rest", source: "default" };
+  if (opts.session?.type === "rest") return { type: "rest", source: "changed", scheduled };
+  if (opts.session?.done) return { type: "training", source: "workout", scheduled };
+  if (scheduled !== "rest") return { type: "training", source: "schedule", scheduled };
+  return { type: "rest", source: "default", scheduled };
 }
 
 export interface Targets {

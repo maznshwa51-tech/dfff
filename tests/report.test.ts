@@ -1,0 +1,119 @@
+import { describe, expect, it } from "vitest";
+import ar from "@/messages/ar.json";
+import en from "@/messages/en.json";
+import { validateLabel } from "@/lib/label";
+import { computeReportData, reportText } from "@/lib/report";
+import { reportEmail } from "@/lib/report-email";
+import { isDue, runDailyReports, sendReportFor, whatsappParams, type ReportDeps } from "@/lib/report-job";
+import { DEFAULT_SETTINGS as S } from "@/lib/targets";
+import type { RawData } from "@/lib/stats";
+
+const DATE = "2026-11-14"; // سبت = ملاكمة
+const raw: RawData = {
+  entries: [{ id: "1", date: DATE, meal: "lunch", name: "دجاج", amount: 200, unit: "g", kcal: 1850, protein: 112, carbs: 210, fat: 55, createdAt: 0 }],
+  weights: new Map([["2026-11-13", 75], [DATE, 74.6]]),
+  steps: new Map([[DATE, 9200]]),
+  sessions: new Map([[DATE, { id: DATE, date: DATE, type: "boxing", done: true, updatedAt: 0 }]]),
+  overrides: new Map(),
+};
+
+describe("نص التقرير", () => {
+  it("فيه كل الأرقام", () => {
+    const r = computeReportData(DATE, raw, S, [], "ar");
+    expect(r).toMatchObject({ kcal: 1850, kcalTarget: 2150, protein: 112, proteinTarget: 110, steps: 9200, weight: 74.6, avg7: 74.8, workout: { name: "ملاكمة", done: true } });
+    const text = reportText(r, "ar", "استمر يا بطل").replace(/[\u2066\u2069]/g, "");
+    expect(reportText(r, "ar", "")).toContain("\u20661,850 / 2,150\u2069");
+    expect(text).toContain("🔥 السعرات: 1,850 / 2,150");
+    expect(text).toContain("💪 البروتين: 112 / 110 غ");
+    expect(text).toContain("ملاكمة ✅");
+    expect(text).toContain("74.6 كغ (متوسط 7 أيام: 74.8)");
+    expect(reportText(computeReportData(DATE, raw, S, [], "en"), "en")).toContain("Boxing ✅");
+  });
+  it("تمرين ما خلص ← ❌، والراحة", () => {
+    const r = computeReportData(DATE, { ...raw, sessions: new Map() }, S, [], "ar");
+    expect(reportText(r, "ar")).toContain("ملاكمة ❌");
+    const mon = computeReportData("2026-11-16", raw, S, [], "ar");
+    expect(mon.workout).toBeNull();
+    expect(reportText(mon, "ar")).toContain("يوم راحة");
+  });
+  it("قالب الإيميل ومتغيرات واتساب", () => {
+    const r = computeReportData(DATE, raw, S, [], "ar");
+    const m = reportEmail(r, "ar", "<b>هلا</b>", "https://x.app");
+    expect(m.html).toContain('dir="rtl"');
+    expect(m.html).toContain("&lt;b&gt;هلا&lt;/b&gt;"); // آمن من HTML
+    expect(m.html).toContain("#d4af6a");
+    const p = whatsappParams(r, "ar", "سطر\nثاني");
+    expect(p).toHaveLength(9);
+    expect(p[1].replace(/[\u2066\u2069]/g, "")).toBe("1,850 / 2,150");
+  });
+});
+
+describe("وقت الإرسال", () => {
+  const s = { ...S, report: { ...S.report, time: "21:30", timezone: "Asia/Dubai" } };
+  it("يحسب حسب توقيت دبي مع هامش", () => {
+    expect(isDue(s, new Date("2026-11-14T17:30:00Z"), 0)).toEqual({ due: true, date: DATE }); // 21:30 دبي
+    expect(isDue(s, new Date("2026-11-14T17:00:00Z"), 0).due).toBe(false); // 21:00
+    expect(isDue(s, new Date("2026-11-14T17:00:00Z"), 60).due).toBe(true); // Vercel المجاني
+    expect(isDue({ ...s, report: { ...s.report, enabled: false } }, new Date("2026-11-14T19:00:00Z"), 0).due).toBe(false);
+  });
+});
+
+function fakeDeps(over: Partial<ReportDeps> = {}) {
+  const sent: string[] = [];
+  const log = new Set<string>();
+  const deps: ReportDeps = {
+    now: new Date("2026-11-14T17:40:00Z"),
+    toleranceMinutes: 0,
+    listSettings: async () => [
+      { userId: "u1", settings: { ...S, report: { ...S.report, channel: "both", whatsapp: "971500000000" } } },
+      { userId: "u2", settings: { ...S, report: { ...S.report, time: "23:00" } } },
+    ],
+    loadData: async () => ({ raw, types: [] }),
+    userEmail: async (id) => `${id}@example.com`,
+    alreadySent: async (u, d) => log.has(u + d),
+    markSent: async (u, d) => void log.add(u + d),
+    sendEmail: async (to, subject) => void sent.push(`email:${to}:${subject}`),
+    sendWhatsApp: async (to, params) => void sent.push(`wa:${to}:${params.length}`),
+    encourage: async () => null,
+    ...over,
+  };
+  return { deps, sent };
+}
+
+describe("مهمة التقرير اليومي", () => {
+  it("يرسل لمن حان وقته مرة وحدة باليوم", async () => {
+    const { deps, sent } = fakeDeps();
+    const r1 = await runDailyReports(deps);
+    expect(r1).toHaveLength(1);
+    expect(sent).toEqual(["email:u1@example.com:📊 تقرير يومك 14/11", "wa:971500000000:9"]);
+    const r2 = await runDailyReports(deps);
+    expect(r2).toHaveLength(0);
+    expect(sent).toHaveLength(2);
+  });
+  it("فشل قناة ما يوقف الثانية، وGemini اختياري", async () => {
+    const { deps, sent } = fakeDeps({ sendWhatsApp: async () => { throw new Error("WhatsApp 401"); }, encourage: async () => { throw new Error("429"); } });
+    const res = await sendReportFor(deps, "u1", { ...S, report: { ...S.report, channel: "both", whatsapp: "9715" } }, DATE);
+    expect(res).toEqual([{ channel: "email", ok: true }, { channel: "whatsapp", ok: false, error: "WhatsApp 401" }]);
+    expect(sent).toHaveLength(1);
+  });
+});
+
+describe("التحقق من رد قراءة الملصق", () => {
+  const ok = { is_nutrition_label: true, name: "زبادي", reference_amount: 100, unit: "g", calories: 61.4, protein: 3.46, carbs: 4.7, fat: 3.3 };
+  it("يقبل ويقرّب", () => expect(validateLabel(ok)).toEqual({ name: "زبادي", reference_amount: 100, unit: "g", calories: 61, protein: 3.5, carbs: 4.7, fat: 3.3 }));
+  it("يرفض الغلط", () => {
+    expect(validateLabel({ ...ok, is_nutrition_label: false })).toBe("not_label");
+    expect(validateLabel({ ...ok, protein: -1 })).toBeNull();
+    expect(validateLabel({ ...ok, carbs: 90, fat: 30 })).toBeNull(); // أكثر من الكمية
+    expect(validateLabel({ ...ok, calories: 2000 })).toBeNull();
+    expect(validateLabel({ ...ok, unit: "oz" })).toBeNull();
+    expect(validateLabel("x")).toBeNull();
+  });
+});
+
+describe("الترجمة", () => {
+  it("نفس المفاتيح بالعربي والإنجليزي", () => {
+    const keys = (o: object, p = ""): string[] => Object.entries(o).flatMap(([k, v]) => (v && typeof v === "object" && !Array.isArray(v) ? keys(v, `${p}${k}.`) : [`${p}${k}`]));
+    expect(keys(ar).sort()).toEqual(keys(en).sort());
+  });
+});

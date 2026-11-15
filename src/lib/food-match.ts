@@ -1,8 +1,12 @@
-// تحليل النص المكتوب ("رز أبيض مطبوخ 150 غ") والبحث في قاعدة الأكلات
+// تحليل النص المكتوب ("رز أبيض مطبوخ 150 غ") والبحث في مكتبتي، وحساب القيم حسب الكمية
+
+import type { Macros, Unit } from "./types";
+export type { Macros };
 
 export interface MatchableFood {
   name: string;
-  aliases?: string[];
+  nameEn?: string;
+  brand?: string;
 }
 
 const AR_DIGITS = "٠١٢٣٤٥٦٧٨٩";
@@ -19,7 +23,7 @@ export function normalizeDigits(s: string): string {
 export function normalizeAr(s: string): string {
   return normalizeDigits(s)
     .toLowerCase()
-    .replace(/[ً-ٰٟـ]/g, "") // تشكيل وتطويل
+    .replace(/[ً-ٰٟـ]/g, "")
     .replace(/[إأآٱ]/g, "ا")
     .replace(/ة/g, "ه")
     .replace(/ى/g, "ي")
@@ -30,21 +34,19 @@ export function normalizeAr(s: string): string {
     .trim();
 }
 
-const UNIT_RE =
-  "(?:غرام|غرامات|غم|غ|جرام|جم|ج|grams?|gr|gm|g)";
+const ML_RE = "(?:مل|ملل|مللي|ml)";
+const G_RE = "(?:غرام|غرامات|غم|غ|جرام|جم|grams?|gr|gm|g)";
 
-/** يفصل اسم الأكلة عن الوزن بالغرام. يقبل الأرقام العربية والإنجليزية */
-export function parseFoodInput(raw: string): { name: string; grams: number | null } {
+/** يفصل اسم الأكلة عن الكمية المكتوبة. يقبل الأرقام العربية والإنجليزية */
+export function parseFoodInput(raw: string): { name: string; amount: number | null; unit: Unit | null } {
   const s = normalizeDigits(raw).trim();
-  // رقم + وحدة اختيارية، في أي مكان (غالباً في الآخر)
-  const re = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${UNIT_RE}?(?=\\s|$)`, "i");
+  const re = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(${ML_RE}|${G_RE})?(?=\\s|$)`, "i");
   const m = s.match(re);
-  if (!m) return { name: s.replace(/\s+/g, " ").trim(), grams: null };
-  const grams = parseFloat(m[1]);
-  const name = (s.slice(0, m.index) + " " + s.slice((m.index ?? 0) + m[0].length))
-    .replace(/\s+/g, " ")
-    .trim();
-  return { name, grams: grams > 0 ? grams : null };
+  if (!m) return { name: s.replace(/\s+/g, " ").trim(), amount: null, unit: null };
+  const amount = parseFloat(m[1]);
+  const unit: Unit | null = m[2] ? (new RegExp(`^${ML_RE}$`, "i").test(m[2]) ? "ml" : "g") : null;
+  const name = (s.slice(0, m.index) + " " + s.slice((m.index ?? 0) + m[0].length)).replace(/\s+/g, " ").trim();
+  return { name, amount: amount > 0 ? amount : null, unit };
 }
 
 function stripAl(token: string): string {
@@ -55,37 +57,37 @@ function tokens(s: string): string[] {
   return normalizeAr(s).split(" ").filter(Boolean).map(stripAl);
 }
 
-/**
- * درجة التطابق بين النص وأكلة. 0 = لا يوجد تطابق.
- * 100 = تطابق تام مع الاسم أو أحد الأسماء البديلة.
- */
+/** درجة التطابق بين النص وأكلة (0 = لا يوجد، 100 = تطابق تام) */
 export function scoreMatch(query: string, food: MatchableFood): number {
   const q = tokens(query);
   if (q.length === 0) return 0;
   const qJoined = q.join(" ");
+  const labels = [food.name];
+  if (food.nameEn) labels.push(food.nameEn);
+  if (food.brand) labels.push(`${food.name} ${food.brand}`, food.brand);
   let best = 0;
-  for (const label of [food.name, ...(food.aliases ?? [])]) {
+  for (const label of labels) {
     const l = tokens(label);
     if (l.length === 0) continue;
     const lJoined = l.join(" ");
     if (lJoined === qJoined) return 100;
-    // كل كلمات الاسم موجودة في النص المكتوب
     const covered = l.filter((t) => q.includes(t)).length;
+    const qCovered = q.filter((t) => l.includes(t)).length;
     if (covered === l.length) {
-      // كلما غطّى الاسم نسبة أكبر من النص كان أفضل
-      const s = 50 + 40 * (l.length / q.length);
-      best = Math.max(best, Math.min(s, 95));
+      best = Math.max(best, Math.min(50 + 40 * (l.length / q.length), 95));
+    } else if (qCovered === q.length) {
+      // كل اللي كتبته موجود في الاسم (مثلاً "دجاج" ← "صدر دجاج مطبوخ")
+      best = Math.max(best, 40 + 30 * (q.length / l.length));
     } else if (covered > 0) {
       best = Math.max(best, 20 * (covered / l.length));
-    } else if (lJoined.startsWith(qJoined) && qJoined.length >= 2) {
-      // بداية كلمة (للبحث أثناء الكتابة)
-      best = Math.max(best, 30);
+    } else if (q.length === 1 && q[0].length >= 2 && l.some((t) => t.startsWith(q[0]))) {
+      best = Math.max(best, 30); // بداية كلمة (أثناء الكتابة)
     }
   }
   return best;
 }
 
-export function searchFoods<T extends MatchableFood>(query: string, foods: T[], limit = 6): { food: T; score: number }[] {
+export function searchFoods<T extends MatchableFood>(query: string, foods: T[], limit = 8): { food: T; score: number }[] {
   return foods
     .map((food) => ({ food, score: scoreMatch(query, food) }))
     .filter((r) => r.score > 0)
@@ -93,29 +95,17 @@ export function searchFoods<T extends MatchableFood>(query: string, foods: T[], 
     .slice(0, limit);
 }
 
-/** أفضل أكلة مطابقة بثقة كافية، أو null (عندها نسأل Claude) */
-export function bestMatch<T extends MatchableFood>(query: string, foods: T[]): T | null {
-  const [top] = searchFoods(query, foods, 1);
-  return top && top.score >= 75 ? top.food : null;
-}
-
-export interface Macros {
-  kcal: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
-
-export function scaleMacros(per100: Macros, grams: number): Macros {
-  const f = grams / 100;
-  return {
-    kcal: Math.round(per100.kcal * f),
-    protein: round1(per100.protein * f),
-    carbs: round1(per100.carbs * f),
-    fat: round1(per100.fat * f),
-  };
-}
-
 export function round1(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+/** القيم محفوظة حسب الكمية المرجعية (مثلاً 100 غ). نحسبها حسب الكمية اللي أكلتها */
+export function scaleMacros(per: Macros, amount: number, refAmount = 100): Macros {
+  const f = refAmount > 0 && amount > 0 ? amount / refAmount : 0;
+  return {
+    kcal: Math.round(per.kcal * f),
+    protein: round1(per.protein * f),
+    carbs: round1(per.carbs * f),
+    fat: round1(per.fat * f),
+  };
 }
