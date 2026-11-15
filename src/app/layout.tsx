@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   description: "سجل الأكل والوزن والخطوات والتمارين",
   applicationName: "لياقتي",
   appleWebApp: { capable: true, title: "لياقتي", statusBarStyle: "black-translucent" },
-  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
@@ -34,6 +33,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="rtl" suppressHydrationWarning className={`${plex.variable} ${inter.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        {/* الأيقونات هنا مباشرة (مش من metadata) عشان الشعار اللي تختاره يظل بعد التنقل بين الصفحات */}
+        <link rel="icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-dvh antialiased">
         <Providers>
