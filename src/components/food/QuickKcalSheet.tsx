@@ -2,7 +2,7 @@
 
 import { Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Field, Input, Segmented, Sheet } from "@/components/ui";
 import { uid } from "@/lib/ids";
 import { putRow } from "@/lib/repo";
@@ -22,6 +22,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const [meal, setMeal] = useState<Meal>(defaultMeal);
   const [touched, setTouched] = useState(false);
   const [wasOpen, setWasOpen] = useState(false);
+  const saving = useRef(false);
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
@@ -38,7 +39,8 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (!validKcal || !validReason) return;
+    if (!validKcal || !validReason || saving.current) return;
+    saving.current = true;
     const entry: FoodEntry = {
       id: uid(),
       quick: true,
@@ -53,8 +55,12 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
       fat: 0,
       createdAt: Date.now(),
     };
-    await putRow("entries", entry);
-    onClose();
+    try {
+      await putRow("entries", entry);
+      onClose();
+    } finally {
+      saving.current = false;
+    }
   };
 
   return (

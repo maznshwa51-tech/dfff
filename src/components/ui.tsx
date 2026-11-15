@@ -4,7 +4,7 @@ import { AnimatePresence, motion, type HTMLMotionProps } from "framer-motion";
 import { ChevronLeft, ChevronRight, Settings as SettingsIcon, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, type ReactNode } from "react";
 import { addDays, weekday, fromKey } from "@/lib/dates";
 import { SyncBadge } from "./SyncBadge";
 
@@ -168,17 +168,28 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
   );
 }
 
+// قفل التمرير: عدّاد عشان لو انفتحت نافذتين ورا بعض ما تعلق الصفحة
+let scrollLocks = 0;
+function lockScroll() {
+  if (scrollLocks++ === 0) document.body.style.overflow = "hidden";
+  return () => {
+    if (--scrollLocks <= 0) {
+      scrollLocks = 0;
+      document.body.style.overflow = "";
+    }
+  };
+}
+
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
   const t = useTranslations("common");
   useEffect(() => {
     if (!open) return;
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockScroll();
     return () => {
       window.removeEventListener("keydown", k);
-      document.body.style.overflow = prev;
+      unlock();
     };
   }, [open, onClose]);
   return (
@@ -247,12 +258,12 @@ export function DayNav({ date, today, onChange }: { date: string; today: string;
 
 export function Stat({ label, value, sub, icon: Icon }: { label: string; value: ReactNode; sub?: ReactNode; icon?: LucideIcon }) {
   return (
-    <div className="rounded-2xl bg-card p-4 shadow-soft ring-1 ring-line">
+    <div className="min-w-0 rounded-2xl bg-card p-3.5 shadow-soft ring-1 ring-line min-[390px]:p-4">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted">
         {Icon && <Icon className="size-3.5 text-gold" aria-hidden />}
         {label}
       </div>
-      <div className="num mt-1 text-2xl font-bold">{value}</div>
+      <div className="num mt-1 truncate text-xl font-bold min-[390px]:text-2xl">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted">{sub}</div>}
     </div>
   );
@@ -270,4 +281,18 @@ export const fmt = (n: number | null | undefined, digits = 0) =>
 export function Signed({ n, digits = 1 }: { n: number | null; digits?: number }) {
   if (n == null) return <>—</>;
   return <span dir="ltr">{`${n > 0 ? "+" : ""}${fmt(n, digits)}`}</span>;
+}
+
+/** يغلّف دالة حفظ عشان ما تنفذ مرتين لو ضغطت بسرعة (double tap) */
+export function useOnce() {
+  const busy = useRef(false);
+  return useCallback(async (fn: () => Promise<unknown>) => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      await fn();
+    } finally {
+      busy.current = false;
+    }
+  }, []);
 }

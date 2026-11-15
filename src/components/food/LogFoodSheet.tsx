@@ -43,6 +43,7 @@ export function LogFoodSheet({
   const [meal, setMeal] = useState<Meal>(mealProp ?? defaultMeal());
   const [touched, setTouched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const saving = useRef(false); // يمنع الحفظ مرتين لو ضغطت بسرعة
 
   // نجهز الحقول مباشرة لما تتغير الأكلة (قبل الرسم، عشان ما تظهر كمية قديمة)
   const openKey = food ? `${food.id}|${initialAmount ?? ""}` : null;
@@ -70,7 +71,8 @@ export function LogFoodSheet({
   const save = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setTouched(true);
-    if (!valid) return;
+    if (!valid || saving.current) return;
+    saving.current = true;
     const entry: FoodEntry = {
       id: uid(),
       date,
@@ -83,10 +85,14 @@ export function LogFoodSheet({
       ...m,
       createdAt: Date.now(),
     };
-    await putRow("entries", entry);
-    await patchRow<Food>("foods", food.id, { lastAmount: a });
-    onLogged?.();
-    onClose();
+    try {
+      await putRow("entries", entry);
+      await patchRow<Food>("foods", food.id, { lastAmount: a });
+      onLogged?.();
+      onClose();
+    } finally {
+      saving.current = false;
+    }
   };
 
   return (

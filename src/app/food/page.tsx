@@ -8,7 +8,7 @@ import { AddFoodSheet } from "@/components/food/AddFoodSheet";
 import { defaultMeal, LogFoodSheet } from "@/components/food/LogFoodSheet";
 import { Library } from "@/components/food/Library";
 import { QuickKcalSheet } from "@/components/food/QuickKcalSheet";
-import { Button, Card, DayNav, Empty, Field, IconButton, Input, PageHeader, Segmented, Select, Sheet, fmt } from "@/components/ui";
+import { Button, Card, DayNav, Empty, Field, IconButton, Input, PageHeader, Segmented, Select, Sheet, fmt, useOnce } from "@/components/ui";
 import { addDays } from "@/lib/dates";
 import { getDb } from "@/lib/db";
 import { parseFoodInput, scaleMacros, searchFoods } from "@/lib/food-match";
@@ -217,6 +217,7 @@ function copyEntries(items: FoodEntry[], date: string, meal?: Meal) {
 
 function RepeatYesterday({ open, onClose, date }: { open: boolean; onClose: () => void; date: string }) {
   const t = useTranslations();
+  const once = useOnce();
   const sep = useLocale() === "ar" ? "، " : ", ";
   const y = addDays(date, -1);
   const items = useLiveQuery(() => (open ? getDb().entries.where("date").equals(y).toArray() : []), [open, y]) ?? [];
@@ -234,10 +235,12 @@ function RepeatYesterday({ open, onClose, date }: { open: boolean; onClose: () =
               <button
                 key={m}
                 className="w-full rounded-2xl bg-card p-4 text-start shadow-soft ring-1 ring-line active:scale-[0.99]"
-                onClick={async () => {
-                  await copyEntries(mi, date, m);
-                  onClose();
-                }}
+                onClick={() =>
+                  once(async () => {
+                    await copyEntries(mi, date, m);
+                    onClose();
+                  })
+                }
               >
                 <div className="flex justify-between font-semibold">
                   <span>{t("food.mealYesterday", { meal: t(`meals.${m}`) })}</span>
@@ -251,10 +254,12 @@ function RepeatYesterday({ open, onClose, date }: { open: boolean; onClose: () =
           })}
           <Button
             className="w-full"
-            onClick={async () => {
-              await copyEntries(items, date);
-              onClose();
-            }}
+            onClick={() =>
+              once(async () => {
+                await copyEntries(items, date);
+                onClose();
+              })
+            }
           >
             {t("food.repeatAll")}
           </Button>
@@ -267,6 +272,7 @@ function RepeatYesterday({ open, onClose, date }: { open: boolean; onClose: () =
 
 function Favorites({ open, onClose, date, meal }: { open: boolean; onClose: () => void; date: string; meal: Meal }) {
   const t = useTranslations();
+  const once = useOnce();
   const sep = useLocale() === "ar" ? "، " : ", ";
   const favs = useLiveQuery(() => getDb().favorites.toArray(), []) ?? [];
   return (
@@ -281,14 +287,16 @@ function Favorites({ open, onClose, date, meal }: { open: boolean; onClose: () =
               <li key={f.id} className="flex items-center gap-2 rounded-2xl bg-card p-4 shadow-soft ring-1 ring-line">
                 <button
                   className="min-w-0 flex-1 text-start"
-                  onClick={async () => {
-                    const now = Date.now();
-                    await putRows(
-                      "entries",
-                      f.items.map((it, i) => ({ ...it, id: uid(), date, meal, createdAt: now + i })),
-                    );
-                    onClose();
-                  }}
+                  onClick={() =>
+                    once(async () => {
+                      const now = Date.now();
+                      await putRows(
+                        "entries",
+                        f.items.map((it, i) => ({ ...it, id: uid(), date, meal, createdAt: now + i })),
+                      );
+                      onClose();
+                    })
+                  }
                 >
                   <div className="font-semibold">{f.name}</div>
                   <div className="truncate text-xs text-muted">
@@ -308,6 +316,7 @@ function Favorites({ open, onClose, date, meal }: { open: boolean; onClose: () =
 
 function SaveFavorite({ items, mealLabel }: { items: FoodEntry[]; mealLabel: string }) {
   const t = useTranslations();
+  const once = useOnce();
   const sep = useLocale() === "ar" ? "، " : ", ";
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -330,7 +339,7 @@ function SaveFavorite({ items, mealLabel }: { items: FoodEntry[]; mealLabel: str
           <Button
             className="w-full"
             disabled={!name.trim()}
-            onClick={async () => {
+            onClick={() => once(async () => {
               await putRow("favorites", {
                 id: uid(),
                 name: name.trim(),
@@ -338,7 +347,7 @@ function SaveFavorite({ items, mealLabel }: { items: FoodEntry[]; mealLabel: str
                 createdAt: Date.now(),
               });
               setOpen(false);
-            }}
+            })}
           >
             {t("common.save")}
           </Button>

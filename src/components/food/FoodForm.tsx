@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Field, Input, Segmented, Select } from "@/components/ui";
 import { useCategories, useCategoryName } from "@/lib/hooks";
 import { uid } from "@/lib/ids";
@@ -76,6 +76,7 @@ export function FoodForm({
   const catName = useCategoryName();
   const [d, setD] = useState<FoodDraft>(initial);
   const [touched, setTouched] = useState(false);
+  const saving = useRef(false);
   const set = (p: Partial<FoodDraft>) => setD((x) => ({ ...x, ...p }));
   const parsed = parseDraft(d);
   const unit = t(`common.units.${d.unit}`);
@@ -84,12 +85,17 @@ export function FoodForm({
 
   const save = async (andLog: boolean) => {
     setTouched(true);
-    if (!parsed) return;
+    if (!parsed || saving.current) return;
+    saving.current = true;
     const food: Food = existing
       ? { ...existing, ...parsed, nameEn: parsed.name === existing.name ? existing.nameEn : undefined }
       : { ...parsed, id: uid(), createdAt: Date.now() };
-    await putRow("foods", food);
-    onSaved(food, andLog);
+    try {
+      await putRow("foods", food);
+      onSaved(food, andLog);
+    } finally {
+      saving.current = false;
+    }
   };
 
   const numField = (key: "kcal" | "protein" | "carbs" | "fat", label: string) => (

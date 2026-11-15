@@ -60,21 +60,21 @@ export default function StatsPage() {
         <Segmented value={range} onChange={setRange} options={(["7", "30", "90"] as const).map((id) => ({ id, label: t(`stats.ranges.${id}`) }))} />
 
         <div className="grid grid-cols-2 gap-3">
-          <Card className="flex items-center gap-3 !p-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gold/12 text-2xl">🔥</span>
+          <Card className="flex min-w-0 items-center gap-2.5 !p-3.5 min-[390px]:gap-3 min-[390px]:!p-4">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-gold/12 text-xl min-[390px]:size-12 min-[390px]:text-2xl">🔥</span>
             <div className="min-w-0">
-              <div className="num text-3xl font-extrabold text-gold" data-testid="protein-streak">
+              <div className="num text-2xl font-extrabold text-gold min-[390px]:text-3xl" data-testid="protein-streak">
                 {v.pStreak}
               </div>
               <div className="text-xs leading-snug text-muted">{t("stats.proteinStreak", { n: v.pStreak })}</div>
             </div>
           </Card>
-          <Card className="flex items-center gap-3 !p-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-success/12">
+          <Card className="flex min-w-0 items-center gap-2.5 !p-3.5 min-[390px]:gap-3 min-[390px]:!p-4">
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-success/12 min-[390px]:size-12">
               <Flame className="size-6 text-success" />
             </span>
             <div className="min-w-0">
-              <div className="num text-3xl font-extrabold text-success">{v.comp.pct == null ? "—" : `${v.comp.pct}%`}</div>
+              <div className="num text-2xl font-extrabold text-success min-[390px]:text-3xl">{v.comp.pct == null ? "—" : `${v.comp.pct}%`}</div>
               <div className="text-xs leading-snug text-muted">
                 {t("stats.commitment")} · {t("stats.workoutStreak", { n: v.wStreak })}
               </div>

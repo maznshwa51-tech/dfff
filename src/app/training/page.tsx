@@ -47,8 +47,10 @@ function TodayWorkout({ date, settings }: { date: string; settings: Settings }) 
   const t = useTranslations();
   const types = useWorkoutTypes();
   const wname = useWorkoutName();
-  const stored = useLiveQuery(() => getDb().sessions.get(date), [date]);
+  // null = ما فيه جلسة محفوظة، undefined = لسا يحمّل (ما نعرض شي عشان ما يطلع وضع غلط)
+  const stored = useLiveQuery(() => getDb().sessions.get(date).then((s) => s ?? null), [date]);
   const [changing, setChanging] = useState(false);
+  if (stored === undefined) return <Card className="min-h-48 animate-pulse">{null}</Card>;
   const typeId = plannedFor(date, settings, stored ?? undefined);
   const wtype = types.find((x) => x.id === typeId);
   const session: Session = stored ?? newSession(date, typeId, settings, wtype?.kind);
@@ -272,7 +274,7 @@ function ChangeType({ open, onClose, current, types, onPick }: { open: boolean; 
 
 function Steps({ date, settings }: { date: string; settings: Settings }) {
   const t = useTranslations();
-  const steps = useLiveQuery(() => getDb().steps.get(date), [date]);
+  const steps = useLiveQuery(() => getDb().steps.get(date).then((s) => s ?? null), [date]);
   const [v, setV] = useState("");
   const [goalOpen, setGoalOpen] = useState(false);
   const count = steps?.count ?? 0;
@@ -289,7 +291,7 @@ function Steps({ date, settings }: { date: string; settings: Settings }) {
         {t("training.steps")}
       </CardTitle>
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="num text-4xl font-extrabold">{fmt(count)}</span>
+        <span className="num text-4xl font-extrabold">{steps === undefined ? "…" : fmt(count)}</span>
         <span className="text-sm font-medium text-muted">{count >= settings.stepsGoal ? t("training.stepsDone") : t("training.stepsLeft", { n: fmt(settings.stepsGoal - count) })}</span>
       </div>
       <Progress value={count} max={settings.stepsGoal} color="var(--success)" label={t("training.steps")} />
@@ -339,9 +341,9 @@ function Commitment({ today, settings }: { today: string; settings: Settings }) 
       <div className="grid grid-cols-3 gap-3">
         <Pct label={t("training.week")} c={c.week} />
         <Pct label={t("training.month")} c={c.month} />
-        <div className="rounded-2xl bg-gold/10 p-4 text-center">
+        <div className="min-w-0 rounded-2xl bg-gold/10 p-3 text-center min-[390px]:p-4">
           <Flame className="mx-auto size-6 text-gold" />
-          <div className="num mt-1 text-3xl font-extrabold text-gold" data-testid="workout-streak">
+          <div className="num mt-1 text-2xl font-extrabold text-gold min-[390px]:text-3xl" data-testid="workout-streak">
             {c.streak}
           </div>
           <div className="text-xs text-muted">{t("training.streak")}</div>
@@ -354,9 +356,9 @@ function Commitment({ today, settings }: { today: string; settings: Settings }) 
 function Pct({ label, c }: { label: string; c: { planned: number; done: number; pct: number | null } }) {
   const t = useTranslations();
   return (
-    <div className="rounded-2xl bg-card2 p-4 text-center ring-1 ring-line">
+    <div className="min-w-0 rounded-2xl bg-card2 p-3 text-center ring-1 ring-line min-[390px]:p-4">
       <div className="text-xs text-muted">{label}</div>
-      <div className="num mt-1 text-3xl font-extrabold">{c.pct == null ? "—" : `${c.pct}%`}</div>
+      <div className="num mt-1 text-2xl font-extrabold min-[390px]:text-3xl">{c.pct == null ? "—" : `${c.pct}%`}</div>
       <div className="num text-xs text-muted">{t("training.ofPlanned", { done: c.done, planned: c.planned })}</div>
     </div>
   );
