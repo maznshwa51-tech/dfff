@@ -2,7 +2,8 @@ import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { AppDB, getMeta } from "@/lib/db";
-import { ensureDefaults, migrateLegacy } from "@/lib/bootstrap";
+import { ensureDefaults, migrateLegacy, migrateSettings } from "@/lib/bootstrap";
+import { DEFAULT_SETTINGS } from "@/lib/targets";
 import { putRow, removeRow, patchRow } from "@/lib/repo";
 import { prepareForUser, syncOnce, type RemoteAdapter, type RemoteRecord } from "@/lib/sync";
 import { exportAll, importAll, validateBackup } from "@/lib/backup";
@@ -132,7 +133,7 @@ describe("نقل بيانات النسخة الأولى", () => {
     expect(await db.sessions.get("2026-11-14")).toMatchObject({ type: "cycling", done: true, km: 18.5 });
     expect(await db.weights.get("2026-11-10")).toMatchObject({ kg: 75.2 });
     const s = await db.settings.get("settings");
-    expect(s).toMatchObject({ stepsGoal: 8000, kcalTraining: 2150, kcalRest: 1900 });
+    expect(s).toMatchObject({ stepsGoal: 8000, kcalTraining: 1900, kcalRest: 1700 });
     expect((await db.favorites.toArray())[0].items[0]).toMatchObject({ amount: 150, unit: "g" });
     // كل شي في قائمة الرفع
     expect(await db.outbox.count()).toBeGreaterThan(5);
@@ -158,5 +159,34 @@ describe("النسخ الاحتياطي", () => {
     expect(() => validateBackup({ foo: 1 })).toThrow("notBackup");
     expect(() => validateBackup({ app: "lyaqa", version: 2, data: { foods: "x" } })).toThrow("invalid");
     expect(() => validateBackup({ app: "lyaqa", version: 1, data: {} })).toThrow("version");
+  });
+});
+
+describe("تحديث الأهداف 1900 / 1700", () => {
+  it("يغيّر الأهداف القديمة الافتراضية بس", async () => {
+    const a = fresh();
+    await putRow("settings", { ...DEFAULT_SETTINGS, targetsVersion: undefined, kcalTraining: 2150, kcalRest: 1900, lowKcalAlert: 1800 }, a);
+    expect(await migrateSettings(a)).toBe(true);
+    expect(await a.settings.get("settings")).toMatchObject({ kcalTraining: 1900, kcalRest: 1700, lowKcalAlert: 1600, targetsVersion: 2 });
+    expect(await migrateSettings(a)).toBe(false); // مرة وحدة
+    // لو غيّرت إعداد قبل التحديث، الأهداف القديمة لسا تتحدث
+    const { mergeSettings } = await import("@/lib/targets");
+    const c = fresh();
+    await putRow("settings", { ...mergeSettings({ ...DEFAULT_SETTINGS, targetsVersion: undefined, kcalTraining: 2150, kcalRest: 1900 }), stepsGoal: 9000 }, c);
+    expect(await migrateSettings(c)).toBe(true);
+    expect(await c.settings.get("settings")).toMatchObject({ kcalTraining: 1900, kcalRest: 1700, stepsGoal: 9000 });
+    const b = fresh();
+    await putRow("settings", { ...DEFAULT_SETTINGS, targetsVersion: undefined, kcalTraining: 2000, kcalRest: 1800, lowKcalAlert: 1500 }, b);
+    await migrateSettings(b);
+    expect(await b.settings.get("settings")).toMatchObject({ kcalTraining: 2000, kcalRest: 1800, lowKcalAlert: 1500 }); // عدلتها بنفسك ← ما تتغير
+  });
+  it("الشعارات تتزامن مثل باقي البيانات", async () => {
+    const server = new FakeServer();
+    const a = fresh(), b = fresh();
+    await prepareForUser(a, "u"); await prepareForUser(b, "u");
+    await putRow("logos", { id: "l1", dataUrl: "data:image/png;base64,AAAA", createdAt: 1 }, a);
+    await syncOnce(a, server.adapter("u"));
+    await syncOnce(b, server.adapter("u"));
+    expect(await b.logos.get("l1")).toMatchObject({ dataUrl: "data:image/png;base64,AAAA" });
   });
 });

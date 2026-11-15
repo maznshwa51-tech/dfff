@@ -56,9 +56,10 @@ describe("الجدول ونوع اليوم والأهداف", () => {
     expect(resolveDayType("2026-11-14", S, { override: "rest" })).toMatchObject({ type: "rest", source: "manual" });
     expect(resolveDayType("2026-11-14", S, { session: { type: "rest", done: false } })).toMatchObject({ type: "rest", source: "changed" });
   });
-  it("الأهداف 2150 / 1900 و110 بروتين و25% دهون", () => {
-    expect(computeTargets("training", S)).toEqual({ kcal: 2150, protein: 110, fat: 60, carbs: 293 });
-    expect(computeTargets("rest", S)).toEqual({ kcal: 1900, protein: 110, fat: 53, carbs: 246 });
+  it("الأهداف 1900 تمرين / 1700 راحة و110 بروتين و25% دهون", () => {
+    expect(computeTargets("training", S)).toEqual({ kcal: 1900, protein: 110, fat: 53, carbs: 246 });
+    expect(computeTargets("rest", S)).toEqual({ kcal: 1700, protein: 110, fat: 47, carbs: 209 });
+    expect(S.lowKcalAlert).toBeLessThan(S.kcalRest); // التنبيه ما يطلع لو أكلت حسب الهدف
   });
 });
 
@@ -103,6 +104,9 @@ describe("الإحصائيات والتنبيهات", () => {
     expect(days.at(-1)).toMatchObject({ kcal: 1416, protein: 52.5, steps: 8000, weight: 75, dayType: "training" });
     expect(periodStats(days)).toMatchObject({ avgKcal: 1708, workoutDays: 1 });
     expect(topProteinFoods(data.entries)[0].name).toBe("دجاج");
+    const quick = { ...e(SUN, "كيكات", 210, 0), quick: true };
+    expect(topProteinFoods([quick]).length).toBe(0);
+    expect(summarizeDays([SUN], { ...data, entries: [...data.entries, quick] }, S)[0].kcal).toBe(1416 + 210);
   });
   it("تنبيه السعرات أقل من 1800 والبروتين", () => {
     const a = healthAlerts(days.at(-1)!, true, null, S, "today");

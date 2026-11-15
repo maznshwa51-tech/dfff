@@ -5,16 +5,19 @@ import type { DayType, Session, Settings } from "./types";
 
 export const DEFAULT_SETTINGS: Settings = {
   id: "settings",
+  targetsVersion: 2,
   profile: { age: 14, heightCm: 174, startWeightKg: 75, sport: "ملاكمة" },
   // السبت والثلاثاء ملاكمة، الخميس سبار، الجمعة سيكل، الأحد والأربعاء تمرين البيت، الإثنين راحة
   schedule: { 6: "boxing", 2: "boxing", 4: "sparring", 5: "cycling", 0: "home", 3: "home", 1: "rest" },
   homeRounds: 3,
-  kcalTraining: 2150,
-  kcalRest: 1900,
+  // بعد مراجعة الطبيب: 1900 يوم التمرين، 1700 يوم الراحة
+  kcalTraining: 1900,
+  kcalRest: 1700,
   proteinG: 110,
   fatPct: 0.25,
   stepsGoal: 10000,
-  lowKcalAlert: 1800,
+  // أقل من هدف يوم الراحة، عشان التنبيه ما يطلع لو أكلت حسب الهدف
+  lowKcalAlert: 1600,
   lowProteinAlert: 80,
   weeklyLossAlertKg: 0.5,
   theme: "system",
@@ -31,6 +34,8 @@ export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
     profile: { ...DEFAULT_SETTINGS.profile, ...(stored?.profile ?? {}) },
     schedule: { ...DEFAULT_SETTINGS.schedule, ...(stored?.schedule ?? {}) },
     report: { ...DEFAULT_SETTINGS.report, ...(stored?.report ?? {}) },
+    // إعدادات قديمة محفوظة بدون رقم نسخة: نخليها بدون رقم عشان تحديث الأهداف يشتغل عليها
+    targetsVersion: stored ? stored.targetsVersion : DEFAULT_SETTINGS.targetsVersion,
   };
 }
 

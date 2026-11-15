@@ -1,10 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Activity, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { AppLogo } from "./AppLogo";
 import { Button, Field, Input } from "./ui";
 
 type ErrKey = "invalid" | "notConfirmed" | "exists" | "weak" | "offline" | "generic";
@@ -62,9 +63,7 @@ export function LoginScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-bg px-5 py-10">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 grid size-20 place-items-center rounded-[26px] bg-gold text-gold-ink shadow-soft">
-            <Activity className="size-10" strokeWidth={2.4} />
-          </div>
+          <AppLogo size={80} className="mx-auto mb-5" />
           <h1 className="text-3xl font-bold tracking-tight">{t("welcome")}</h1>
           <p className="mt-2 text-[15px] text-muted">{t("subtitle")}</p>
         </div>

@@ -41,6 +41,8 @@ export interface Food extends Macros {
 
 export interface FoodEntry extends Macros {
   id: string;
+  /** إضافة سعرات سريعة (بدون أكلة من المكتبة): الاسم = السبب اللي كتبته */
+  quick?: boolean;
   date: string;
   meal: Meal;
   foodId?: string;
@@ -100,6 +102,7 @@ export interface Session {
 }
 
 export interface FavoriteItem extends Macros {
+  quick?: boolean;
   name: string;
   amount: number;
   unit: Unit;
@@ -112,8 +115,19 @@ export interface Favorite {
   createdAt: number;
 }
 
+/** شعار رفعته (صورة مربعة مصغّرة) */
+export interface Logo {
+  id: string;
+  dataUrl: string;
+  createdAt: number;
+}
+
 export interface Settings {
   id: "settings";
+  /** نسخة الأهداف (2 = 1900 تمرين / 1700 راحة) */
+  targetsVersion?: number;
+  /** الشعار المستخدم (فاضي = الشعار الافتراضي) */
+  logoId?: string;
   profile: { age: number; heightCm: number; startWeightKg: number; sport: string };
   /** رقم اليوم (0 الأحد ... 6 السبت) ← id نوع التمرين أو "rest" */
   schedule: Record<number, string>;
@@ -154,5 +168,6 @@ export const SYNCED_TABLES = [
   "dayTypes",
   "favorites",
   "settings",
+  "logos",
 ] as const;
 export type SyncedTable = (typeof SYNCED_TABLES)[number];

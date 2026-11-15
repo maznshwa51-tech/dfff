@@ -411,5 +411,31 @@
     "workout": "Workout",
     "noWorkout": "Rest day",
     "noData": "—"
+  },
+  "quick": {
+    "title": "Quick add calories",
+    "button": "Quick calories",
+    "kcal": "How many calories?",
+    "reason": "What did you eat?",
+    "reasonPlaceholder": "e.g. a Kit Kat",
+    "reasonRequired": "Tell me what you ate",
+    "kcalRequired": "Enter the calories",
+    "save": "Add {n} kcal",
+    "tapHint": "Tap to add calories",
+    "label": "Quick add",
+    "note": "For small things you don't want in your library. Counts toward today's calories only (no protein, carbs or fat)."
+  },
+  "logo": {
+    "title": "App logo",
+    "upload": "Upload logo",
+    "default": "Default",
+    "use": "Use this logo",
+    "delete": "Delete logo",
+    "deleteConfirm": "Delete this logo?",
+    "active": "In use",
+    "hint": "Every logo you upload is saved here and synced to your account, so you can switch any time.",
+    "homeNote": "The logo changes inside the app right away. Home-screen icon: on iPhone/iPad remove the app from the home screen and add it again after changing the logo.",
+    "invalid": "Couldn't read that image, try another one",
+    "limit": "Limit reached (12 logos). Delete one first."
   }
 }

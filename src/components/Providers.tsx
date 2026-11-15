@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import ar from "@/messages/ar.json";
 import en from "@/messages/en.json";
-import { migrateLegacy, ensureDefaults } from "@/lib/bootstrap";
+import { ensureDefaults, migrateLegacy, migrateSettings } from "@/lib/bootstrap";
 import { getDb } from "@/lib/db";
 import { useSettings } from "@/lib/hooks";
 import { getSupabase, SUPABASE_ENABLED } from "@/lib/supabase";
@@ -14,6 +14,7 @@ import { clearLocal, prepareForUser } from "@/lib/sync";
 import { syncManager } from "@/lib/sync-client";
 import type { Locale } from "@/lib/types";
 import { LoginScreen } from "./LoginScreen";
+import { LogoIcons } from "./AppLogo";
 
 const MESSAGES = { ar, en };
 
@@ -83,6 +84,7 @@ function AuthGate({ children }: { children: ReactNode }) {
       const db = getDb();
       await migrateLegacy(db).catch((e) => console.warn("legacy migration failed", e));
       await ensureDefaults(db);
+      await migrateSettings(db);
       setBooted(true);
     })();
   }, []);
@@ -167,6 +169,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 420, damping: 34 }}>
       <IntlAndTheme>
+        <LogoIcons />
         <AuthGate>{children}</AuthGate>
       </IntlAndTheme>
     </MotionConfig>

@@ -20,10 +20,10 @@ const raw: RawData = {
 describe("نص التقرير", () => {
   it("فيه كل الأرقام", () => {
     const r = computeReportData(DATE, raw, S, [], "ar");
-    expect(r).toMatchObject({ kcal: 1850, kcalTarget: 2150, protein: 112, proteinTarget: 110, steps: 9200, weight: 74.6, avg7: 74.8, workout: { name: "ملاكمة", done: true } });
+    expect(r).toMatchObject({ kcal: 1850, kcalTarget: 1900, protein: 112, proteinTarget: 110, steps: 9200, weight: 74.6, avg7: 74.8, workout: { name: "ملاكمة", done: true } });
     const text = reportText(r, "ar", "استمر يا بطل").replace(/[\u2066\u2069]/g, "");
-    expect(reportText(r, "ar", "")).toContain("\u20661,850 / 2,150\u2069");
-    expect(text).toContain("🔥 السعرات: 1,850 / 2,150");
+    expect(reportText(r, "ar", "")).toContain("\u20661,850 / 1,900\u2069");
+    expect(text).toContain("🔥 السعرات: 1,850 / 1,900");
     expect(text).toContain("💪 البروتين: 112 / 110 غ");
     expect(text).toContain("ملاكمة ✅");
     expect(text).toContain("74.6 كغ (متوسط 7 أيام: 74.8)");
@@ -44,7 +44,7 @@ describe("نص التقرير", () => {
     expect(m.html).toContain("#d4af6a");
     const p = whatsappParams(r, "ar", "سطر\nثاني");
     expect(p).toHaveLength(9);
-    expect(p[1].replace(/[\u2066\u2069]/g, "")).toBe("1,850 / 2,150");
+    expect(p[1].replace(/[\u2066\u2069]/g, "")).toBe("1,850 / 1,900");
   });
 });
 

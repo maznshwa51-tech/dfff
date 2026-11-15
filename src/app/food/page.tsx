@@ -1,12 +1,13 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, RotateCcw, Search, Star, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Search, Star, Trash2, Zap } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { AddFoodSheet } from "@/components/food/AddFoodSheet";
 import { defaultMeal, LogFoodSheet } from "@/components/food/LogFoodSheet";
 import { Library } from "@/components/food/Library";
+import { QuickKcalSheet } from "@/components/food/QuickKcalSheet";
 import { Button, Card, DayNav, Empty, Field, IconButton, Input, PageHeader, Segmented, Select, Sheet, fmt } from "@/components/ui";
 import { addDays } from "@/lib/dates";
 import { getDb } from "@/lib/db";
@@ -49,7 +50,7 @@ function FoodLog() {
   const [text, setText] = useState("");
   const [logging, setLogging] = useState<{ food: Food; amount: number | null } | null>(null);
   const [adding, setAdding] = useState(false);
-  const [sheet, setSheet] = useState<null | "yesterday" | "favorites">(null);
+  const [sheet, setSheet] = useState<null | "yesterday" | "favorites" | "quick">(null);
   const [editing, setEditing] = useState<FoodEntry | null>(null);
 
   const entries = useLiveQuery(() => getDb().entries.where("date").equals(date).sortBy("createdAt"), [date]);
@@ -121,6 +122,9 @@ function FoodLog() {
           <Button variant="soft" icon={Star} onClick={() => setSheet("favorites")}>
             {t("food.favorites")}
           </Button>
+          <Button variant="soft" icon={Zap} className="col-span-2" onClick={() => setSheet("quick")}>
+            {t("quick.title")}
+          </Button>
         </div>
       </Card>
 
@@ -153,7 +157,15 @@ function FoodLog() {
                       <button className="min-w-0 flex-1 text-start" onClick={() => setEditing(e)}>
                         <div className="truncate font-medium">{e.name}</div>
                         <div className="num text-xs text-muted">
-                          {fmt(e.amount, 1)} {t(`common.units.${e.unit}`)} · {fmt(e.kcal)} {t("common.kcal")} · {t("common.protein")} {fmt(e.protein, 1)}
+                          {e.quick ? (
+                            <>
+                              ⚡ {fmt(e.kcal)} {t("common.kcal")} · {t("quick.label")}
+                            </>
+                          ) : (
+                            <>
+                              {fmt(e.amount, 1)} {t(`common.units.${e.unit}`)} · {fmt(e.kcal)} {t("common.kcal")} · {t("common.protein")} {fmt(e.protein, 1)}
+                            </>
+                          )}
                         </div>
                       </button>
                       <IconButton icon={Trash2} label={t("food.deleteEntry", { name: e.name })} onClick={() => removeRow("entries", e.id)} />
@@ -190,6 +202,7 @@ function FoodLog() {
       <RepeatYesterday open={sheet === "yesterday"} onClose={() => setSheet(null)} date={date} />
       <Favorites open={sheet === "favorites"} onClose={() => setSheet(null)} date={date} meal={meal} />
       <EditEntry entry={editing} onClose={() => setEditing(null)} />
+      <QuickKcalSheet open={sheet === "quick"} onClose={() => setSheet(null)} date={date} />
     </div>
   );
 }
@@ -313,7 +326,7 @@ function SaveFavorite({ items, mealLabel }: { items: FoodEntry[]; mealLabel: str
           <Field label={t("food.favoriteName")}>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <p className="text-sm text-muted">{items.map((i) => `${i.name} (${fmt(i.amount)} ${t(`common.units.${i.unit}`)})`).join(sep)}</p>
+          <p className="text-sm text-muted">{items.map((i) => `${i.name} (${i.quick ? `${fmt(i.kcal)} ${t("common.kcal")}` : `${fmt(i.amount)} ${t(`common.units.${i.unit}`)}`})`).join(sep)}</p>
           <Button
             className="w-full"
             disabled={!name.trim()}
@@ -321,7 +334,7 @@ function SaveFavorite({ items, mealLabel }: { items: FoodEntry[]; mealLabel: str
               await putRow("favorites", {
                 id: uid(),
                 name: name.trim(),
-                items: items.map(({ name, amount, unit, kcal, protein, carbs, fat, foodId }) => ({ name, amount, unit, kcal, protein, carbs, fat, foodId })),
+                items: items.map(({ name, amount, unit, kcal, protein, carbs, fat, foodId, quick }) => ({ name, amount, unit, kcal, protein, carbs, fat, foodId, quick })),
                 createdAt: Date.now(),
               });
               setOpen(false);
@@ -339,11 +352,13 @@ function EditEntry({ entry, onClose }: { entry: FoodEntry | null; onClose: () =>
   const t = useTranslations();
   const [amount, setAmount] = useState("");
   const [meal, setMeal] = useState<Meal>("lunch");
+  const [name, setName] = useState("");
   const [lastId, setLastId] = useState<string | undefined>();
   if (entry && entry.id !== lastId) {
     setLastId(entry.id);
     setAmount(String(entry.amount));
     setMeal(entry.meal);
+    setName(entry.name);
   }
   if (!entry) return null;
   const a = parseFloat(amount) || 0;
@@ -352,7 +367,12 @@ function EditEntry({ entry, onClose }: { entry: FoodEntry | null; onClose: () =>
   return (
     <Sheet open onClose={onClose} title={entry.name}>
       <div className="space-y-4">
-        <Field label={t("food.amount", { unit: t(`common.unitNames.${entry.unit}`) })}>
+        {entry.quick && (
+          <Field label={t("quick.reason")}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          </Field>
+        )}
+        <Field label={entry.quick ? t("quick.kcal") : t("food.amount", { unit: t(`common.unitNames.${entry.unit}`) })}>
           <Input type="number" inputMode="decimal" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} className="num text-xl font-bold" />
         </Field>
         <Field label={t("food.meal")}>
@@ -369,9 +389,9 @@ function EditEntry({ entry, onClose }: { entry: FoodEntry | null; onClose: () =>
         </p>
         <Button
           className="w-full"
-          disabled={a <= 0}
+          disabled={a <= 0 || (entry.quick && !name.trim())}
           onClick={async () => {
-            await putRow("entries", { ...entry, amount: a, meal, ...m });
+            await putRow("entries", { ...entry, amount: a, meal, ...m, ...(entry.quick ? { name: name.trim(), kcal: Math.round(a) } : {}) });
             onClose();
           }}
         >

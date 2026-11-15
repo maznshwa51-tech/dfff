@@ -82,6 +82,12 @@ describe("schema.sql + RLS", () => {
     expect(pub.rows).toEqual([{ tablename: "records" }]);
   });
 
+  it("يقبل الشعارات ويرفض السجل الكبير جداً", async () => {
+    await as(A, `insert into public.records (table_name, id, data) values ('logos', 'l1', '{"dataUrl":"data:image/png;base64,AAAA"}')`);
+    const big = "x".repeat(700_000);
+    await expect(as(A, `insert into public.records (table_name, id, data) values ('logos', 'l2', $1::jsonb)`, [JSON.stringify({ dataUrl: big })])).rejects.toThrow(/check constraint/);
+  });
+
   it("يرفض أسماء جداول غريبة", async () => {
     await expect(as(A, `insert into public.records (table_name, id, data) values ('hack', 'x', '{}')`)).rejects.toThrow(/check constraint/);
   });

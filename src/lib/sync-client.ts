@@ -4,7 +4,7 @@
 // ولما جهاز ثاني يغيّر شي (Realtime)، وكل دقيقة احتياطاً
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
-import { ensureDefaults } from "./bootstrap";
+import { ensureDefaults, migrateSettings } from "./bootstrap";
 import { getDb, getMeta } from "./db";
 import { onLocalChange } from "./repo";
 import { syncOnce, type RemoteAdapter } from "./sync";
@@ -103,6 +103,7 @@ class SyncManager {
             await ensureDefaults(db);
             this.again = true;
           }
+          if (await migrateSettings(db)) this.again = true;
           this.set({ state: "idle", lastSync: Date.now() });
         } catch (e) {
           console.warn("sync failed", e);

@@ -5,6 +5,7 @@ import type {
   Favorite,
   Food,
   FoodEntry,
+  Logo,
   Session,
   Settings,
   StepsEntry,
@@ -39,6 +40,7 @@ export class AppDB extends Dexie {
   dayTypes!: EntityTable<DayTypeOverride, "id">;
   favorites!: EntityTable<Favorite, "id">;
   settings!: EntityTable<Settings, "id">;
+  logos!: EntityTable<Logo, "id">;
   outbox!: Dexie.Table<OutboxItem, [string, string]>;
   meta!: EntityTable<MetaRow, "key">;
 
@@ -59,6 +61,8 @@ export class AppDB extends Dexie {
       outbox: "[table+id], ts",
       meta: "key",
     });
+    // النسخة 2: الشعارات
+    this.version(2).stores({ logos: "id, createdAt" });
   }
 }
 

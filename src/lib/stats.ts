@@ -132,6 +132,7 @@ export function proteinStreak(proteinByDate: Map<string, number>, end: string, g
 export function topProteinFoods(entries: FoodEntry[], n = 5): { name: string; protein: number; count: number }[] {
   const m = new Map<string, { protein: number; count: number }>();
   for (const e of entries) {
+    if (e.quick || e.protein <= 0) continue; // السعرات السريعة ما فيها بروتين
     const r = m.get(e.name) ?? { protein: 0, count: 0 };
     r.protein += e.protein;
     r.count++;

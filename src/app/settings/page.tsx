@@ -4,6 +4,7 @@ import { CalendarDays, Download, Languages, LogOut, Mail, MessageCircle, Palette
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { useAuth } from "@/components/Providers";
+import { LogoPicker } from "@/components/LogoPicker";
 import { Button, Card, CardTitle, Field, Input, PageHeader, Segmented, Select } from "@/components/ui";
 import { exportAll, importAll, validateBackup } from "@/lib/backup";
 import { todayKey } from "@/lib/dates";
@@ -72,6 +73,8 @@ export default function SettingsPage() {
             />
           </div>
         </Card>
+
+        <LogoPicker activeId={s.logoId} />
 
         <Card>
           <CardTitle icon={Target}>{t("settings.targets")}</CardTitle>

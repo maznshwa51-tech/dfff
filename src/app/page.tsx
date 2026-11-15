@@ -2,13 +2,15 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion } from "framer-motion";
-import { Dumbbell, Footprints, Info, Lightbulb, MessageCircle, Plus, Scale, TriangleAlert, X } from "lucide-react";
+import { Dumbbell, Footprints, Info, Lightbulb, MessageCircle, Plus, Scale, TriangleAlert, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { DayTypeControl } from "@/components/DayTypeControl";
 import { MacroDonut } from "@/components/charts";
 import { LogFoodSheet } from "@/components/food/LogFoodSheet";
+import { QuickKcalSheet } from "@/components/food/QuickKcalSheet";
+import { AppLogo } from "@/components/AppLogo";
 import { Card, CardTitle, PageHeader, Progress, Ring, fmt, useDayLabel } from "@/components/ui";
 import { addDays } from "@/lib/dates";
 import { getDb } from "@/lib/db";
@@ -39,6 +41,7 @@ export default function TodayPage() {
     [today],
   );
   const [logFood, setLogFood] = useState<Food | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   const view = useMemo(() => {
     if (!settings || !data) return null;
@@ -68,7 +71,7 @@ export default function TodayPage() {
 
   return (
     <>
-      <PageHeader title={t("nav.today")} subtitle={dayLabel(today, "")} />
+      <PageHeader title={t("nav.today")} subtitle={dayLabel(today, "")} logo={<AppLogo size={46} />} />
 
       <div className="space-y-4">
         <Alerts alerts={alerts} />
@@ -118,8 +121,16 @@ export default function TodayPage() {
 
           {/* السعرات والتوزيع */}
           <Card>
-            <CardTitle>{t("home.distribution")}</CardTitle>
-            <div className="flex items-center gap-5">
+            <CardTitle
+              action={
+                <button onClick={() => setQuickOpen(true)} className="flex items-center gap-1 rounded-full bg-gold/12 px-3 py-1.5 text-xs font-semibold text-gold active:scale-95">
+                  <Zap className="size-3.5" /> {t("quick.button")}
+                </button>
+              }
+            >
+              {t("home.distribution")}
+            </CardTitle>
+            <button type="button" onClick={() => setQuickOpen(true)} aria-label={t("quick.tapHint")} className="flex w-full items-center gap-5 text-start">
               <MacroDonut protein={day.protein} carbs={day.carbs} fat={day.fat} size={108} />
               <div className="min-w-0 flex-1">
                 <div className="text-[13px] text-muted">{kcalLeft >= 0 ? t("home.kcalLeft") : t("home.kcalOver")}</div>
@@ -130,8 +141,9 @@ export default function TodayPage() {
                 <div className="mt-2.5">
                   <Progress value={day.kcal} max={tg.kcal} color="var(--kcal)" label={t("common.calories")} />
                 </div>
+                <div className="mt-1.5 text-[11px] font-medium text-gold">{t("quick.tapHint")} +</div>
               </div>
-            </div>
+            </button>
             <div className="mt-5 space-y-3.5">
               <MacroRow label={t("common.protein")} value={day.protein} target={tg.protein} color="var(--protein)" />
               <MacroRow label={t("common.carbs")} value={day.carbs} target={tg.carbs} color="var(--carbs)" />
@@ -171,6 +183,7 @@ export default function TodayPage() {
       </div>
 
       <LogFoodSheet food={logFood} date={today} onClose={() => setLogFood(null)} />
+      <QuickKcalSheet open={quickOpen} onClose={() => setQuickOpen(false)} date={today} />
     </>
   );
 }

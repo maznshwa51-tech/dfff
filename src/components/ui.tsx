@@ -34,13 +34,16 @@ export function CardTitle({ children, icon: Icon, action }: { children: ReactNod
   );
 }
 
-export function PageHeader({ title, subtitle, action, settings = true }: { title: string; subtitle?: string; action?: ReactNode; settings?: boolean }) {
+export function PageHeader({ title, subtitle, action, settings = true, logo }: { title: string; subtitle?: string; action?: ReactNode; settings?: boolean; logo?: ReactNode }) {
   const t = useTranslations("common");
   return (
     <header className="flex items-end justify-between gap-3 pb-5 pt-3">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
+        {logo}
+        <div className="min-w-0">
         <h1 className="truncate text-[32px] font-bold leading-tight tracking-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
+        </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {action}

@@ -6,15 +6,22 @@
 -- جدول واحد لكل البيانات: كل صف = سجل واحد (أكلة، وزن، تمرين...)
 create table if not exists public.records (
   user_id    uuid        not null default auth.uid() references auth.users (id) on delete cascade,
-  table_name text        not null check (table_name in (
-               'categories','foods','entries','weights','waists','steps',
-               'sessions','workoutTypes','dayTypes','favorites','settings')),
+  table_name text        not null,
   id         text        not null check (char_length(id) between 1 and 100),
   data       jsonb,
   deleted    boolean     not null default false,
   updated_at timestamptz not null default clock_timestamp(),
   primary key (user_id, table_name, id)
 );
+
+-- أسماء الجداول المسموحة (ينحدّث كل مرة تشغّل الملف، عشان الإضافات الجديدة مثل logos)
+alter table public.records drop constraint if exists records_table_name_check;
+alter table public.records add constraint records_table_name_check check (table_name in (
+  'categories','foods','entries','weights','waists','steps',
+  'sessions','workoutTypes','dayTypes','favorites','settings','logos'));
+-- حد أقصى لحجم السجل الواحد (الشعار صورة صغيرة)
+alter table public.records drop constraint if exists records_data_size_check;
+alter table public.records add constraint records_data_size_check check (pg_column_size(data) < 600000);
 
 create index if not exists records_user_updated_idx on public.records (user_id, updated_at);
 create index if not exists records_user_table_date_idx on public.records (user_id, table_name, (data ->> 'date'));

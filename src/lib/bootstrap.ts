@@ -21,6 +21,23 @@ export async function ensureDefaults(db: AppDB) {
   await setMeta(db, "defaultsSeeded", true);
 }
 
+/**
+ * تحديث الإعدادات المحفوظة للأهداف الجديدة (1900 تمرين / 1700 راحة).
+ * يغيّر القيم بس إذا كانت على الأهداف القديمة الافتراضية (يعني ما عدلتها بنفسك).
+ */
+export async function migrateSettings(db: AppDB): Promise<boolean> {
+  const s = await db.settings.get("settings");
+  if (!s || (s.targetsVersion ?? 1) >= 2) return false;
+  const next: Settings = { ...s, targetsVersion: 2 };
+  if (s.kcalTraining === 2150 && s.kcalRest === 1900) {
+    next.kcalTraining = 1900;
+    next.kcalRest = 1700;
+  }
+  if (s.lowKcalAlert === 1800) next.lowKcalAlert = 1600;
+  await putRows<Settings>("settings", [next], db);
+  return true;
+}
+
 // ---------- نقل بيانات النسخة الأولى (قاعدة "lyaqa") ----------
 
 const V1_WORKOUT_IDS: Record<string, string> = { ملاكمة: "boxing", سبار: "sparring", سيكل: "cycling", "تمرين بيت": "home" };
