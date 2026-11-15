@@ -58,6 +58,8 @@ create policy "records_delete_own" on public.records for delete to authenticated
 
 revoke all on public.records from anon;
 grant select, insert, update, delete on public.records to authenticated;
+-- السيرفر (التقرير التلقائي) يحتاج يقرأ البيانات
+grant select, insert, update, delete on public.records to service_role;
 
 -- ============ سجل التقارير المرسلة (للسيرفر فقط) ============
 create table if not exists public.report_log (
@@ -70,6 +72,7 @@ create table if not exists public.report_log (
 alter table public.report_log enable row level security;
 -- بدون policies: ما يقدر يوصله إلا السيرفر (service role)
 revoke all on public.report_log from anon, authenticated;
+grant select, insert, update, delete on public.report_log to service_role;
 
 -- ============ المزامنة المباشرة بين الأجهزة (Realtime) ============
 do $$

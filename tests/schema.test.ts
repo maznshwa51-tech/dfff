@@ -35,7 +35,6 @@ beforeAll(async () => {
   const schema = readFileSync("supabase/schema.sql", "utf8");
   await db.exec(schema);
   await db.exec(schema); // لازم يشتغل مرتين بدون أخطاء
-  await db.exec("grant select, insert, update, delete on public.records to service_role; grant all on public.report_log to service_role;");
 });
 
 describe("schema.sql + RLS", () => {
@@ -86,6 +85,17 @@ describe("schema.sql + RLS", () => {
     await as(A, `insert into public.records (table_name, id, data) values ('logos', 'l1', '{"dataUrl":"data:image/png;base64,AAAA"}')`);
     const big = "x".repeat(700_000);
     await expect(as(A, `insert into public.records (table_name, id, data) values ('logos', 'l2', $1::jsonb)`, [JSON.stringify({ dataUrl: big })])).rejects.toThrow(/check constraint/);
+  });
+
+  it("السيرفر (service_role) يقرأ كل البيانات ويكتب سجل التقارير", async () => {
+    await db.exec("set role service_role;");
+    try {
+      const r = await db.query("select count(*)::int as n from public.records");
+      expect((r.rows[0] as { n: number }).n).toBeGreaterThan(1);
+      await db.exec(`insert into public.report_log (user_id, date, channels) values ('${A}', '2026-11-15', 'email')`);
+    } finally {
+      await db.exec("reset role;");
+    }
   });
 
   it("يرفض أسماء جداول غريبة", async () => {
