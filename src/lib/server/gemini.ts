@@ -16,7 +16,7 @@ const FALLBACK_MODELS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.5-flash
   .filter(Boolean);
 export const MODEL_CHAIN = [...new Set([GEMINI_MODEL, ...FALLBACK_MODELS])];
 /** للمهام النصية القصيرة (تقدير السعرات السريعة، جملة التشجيع): موديلات سريعة أولاً */
-const FAST_MODELS = (process.env.GEMINI_FAST_MODELS || "gemini-3.5-flash-lite,gemini-3.1-flash-lite")
+const FAST_MODELS = (process.env.GEMINI_FAST_MODELS || "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-flash-lite-latest")
   .split(",")
   .map((m) => m.trim())
   .filter(Boolean);
@@ -229,12 +229,13 @@ const QUICK_RESPONSE_SCHEMA = {
     action: { type: Type.STRING, enum: ["ask", "estimate"] },
     question: { type: Type.STRING },
     options: { type: Type.ARRAY, items: { type: Type.STRING } },
+    kcal: { type: Type.NUMBER },
     protein: { type: Type.NUMBER },
     carbs: { type: Type.NUMBER },
     fat: { type: Type.NUMBER },
     note: { type: Type.STRING },
   },
-  required: ["action", "protein", "carbs", "fat"],
+  required: ["action", "kcal", "protein", "carbs", "fat"],
 };
 
 /** تقدير الماكروز للسعرات السريعة (ممكن يرجع سؤال توضيحي) */
@@ -248,7 +249,8 @@ export async function estimateQuick(req: QuickRequest): Promise<QuickResult> {
         const res = await c.models.generateContent({
           model,
           contents: quickPrompt(req),
-          config: { responseMimeType: "application/json", responseSchema: QUICK_RESPONSE_SCHEMA, temperature: 0.2, abortSignal: signal },
+          // temperature 0: نفس الوصف يعطي نفس التقدير كل مرة
+          config: { responseMimeType: "application/json", responseSchema: QUICK_RESPONSE_SCHEMA, temperature: 0, abortSignal: signal },
         });
         let json: unknown;
         try {
@@ -260,8 +262,8 @@ export async function estimateQuick(req: QuickRequest): Promise<QuickResult> {
         if (!r) throw new InvalidOutput("shape");
         return r;
       },
-      50_000,
-      15_000,
+      55_000,
+      12_000,
       FAST_CHAIN,
     );
   } catch (e) {
