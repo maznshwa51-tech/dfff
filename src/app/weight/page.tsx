@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ruler, Scale, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -24,7 +25,7 @@ export default function WeightPage() {
   const [waist, setWaist] = useState("");
   const weights = useLiveQuery(() => getDb().weights.orderBy("date").toArray(), []);
   const waists = useLiveQuery(() => getDb().waists.orderBy("date").reverse().toArray(), []);
-  if (!weights) return null;
+  if (!weights) return <PageLoading />;
 
   const map = new Map(weights.map((w) => [w.date, w.kg]));
   const days = lastNDays(today, Number(range));

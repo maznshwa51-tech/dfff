@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { CalendarDays, Download, Languages, LogOut, Mail, MessageCircle, Palette, Send, ShieldCheck, Target, TriangleAlert, Upload, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -23,7 +24,7 @@ export default function SettingsPage() {
   const types = useWorkoutTypes();
   const wname = useWorkoutName();
   const auth = useAuth();
-  if (!s) return null;
+  if (!s) return <PageLoading />;
 
   const tr = computeTargets("training", s);
   const rest = computeTargets("rest", s);

@@ -9,11 +9,25 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export const SUPABASE_ENABLED = Boolean(url && anonKey);
 
+/** أي طلب لـ Supabase ياخذ أكثر من 25 ثانية ينلغي (عشان المزامنة ما تعلق للأبد لو النت ضعيف) */
+const REQUEST_TIMEOUT_MS = 25_000;
+const fetchWithTimeout: typeof fetch = (input, init = {}) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new DOMException("Request timed out", "TimeoutError")), REQUEST_TIMEOUT_MS);
+  const outer = init.signal;
+  if (outer) {
+    if (outer.aborted) ctrl.abort(outer.reason);
+    else outer.addEventListener("abort", () => ctrl.abort(outer.reason), { once: true });
+  }
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+};
+
 let client: SupabaseClient | null = null;
 export function getSupabase(): SupabaseClient | null {
   if (!SUPABASE_ENABLED) return null;
   client ??= createClient(url!, anonKey!, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" },
+    global: { fetch: fetchWithTimeout },
   });
   return client;
 }

@@ -97,7 +97,8 @@ class SyncManager {
         this.set({ state: "syncing" });
         try {
           const db = getDb();
-          await syncOnce(db, this.remote!);
+          // حارس: لو المزامنة طوّلت أكثر من 45 ثانية نوقفها ونحاول بعدين (ما تعلق الأيقونة تدور للأبد)
+          await withTimeout(syncOnce(db, this.remote!), 45_000);
           // جهاز جديد أو حساب جديد: نضيف الافتراضيات بعد أول سحب ناجح
           if (!(await getMeta(db, "defaultsSeeded"))) {
             await ensureDefaults(db);
@@ -108,6 +109,8 @@ class SyncManager {
         } catch (e) {
           console.warn("sync failed", e);
           this.set({ state: navigator.onLine ? "error" : "offline" });
+          // نحاول مرة ثانية بعد 30 ثانية تلقائياً
+          this.request(30_000);
           break;
         }
       } while (this.again && this.remote);
@@ -118,6 +121,22 @@ class SyncManager {
       this.running = null;
     }
   }
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("sync timed out")), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
 }
 
 export const syncManager = new SyncManager();

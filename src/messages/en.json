@@ -481,5 +481,10 @@
       "auth": "Please sign in.",
       "generic": "Couldn't prepare a suggestion. Try again."
     }
+  },
+  "recover": {
+    "slowTitle": "This is taking a while…",
+    "slowBody": "If the app is also open in Chrome or another tab, close it, then tap reload. Your data is safe.",
+    "reload": "Reload"
   }
 }

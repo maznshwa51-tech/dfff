@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion } from "framer-motion";
 import { Bike, Check, Dumbbell, Flame, Footprints, Pencil, Plus, Sofa, Target } from "lucide-react";
@@ -21,7 +22,7 @@ export default function TrainingPage() {
   const today = useToday();
   const settings = useSettings();
   const [date, setDate] = useState(today);
-  if (!settings) return null;
+  if (!settings) return <PageLoading />;
   return (
     <>
       <PageHeader title={t("training.title")} />

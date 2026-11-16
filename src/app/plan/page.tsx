@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { useLiveQuery } from "dexie-react-hooks";
 import { LoaderCircle, RefreshCw, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -66,7 +67,7 @@ export default function PlanPage() {
   const pool = useMemo(() => (foods ?? []).filter((f) => catIds.has(f.categoryId)), [foods, catIds]);
   const byId = useMemo(() => new Map((foods ?? []).map((f) => [f.id, f])), [foods]);
 
-  if (!settings || !foods || !cats || !day || !recent) return null;
+  if (!settings || !foods || !cats || !day || !recent) return <PageLoading />;
   const info = resolveDayType(date, settings, day);
   const targets = computeTargets(info.type, settings);
   const plan = saved?.plan;

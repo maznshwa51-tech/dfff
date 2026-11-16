@@ -14,6 +14,7 @@ import { clearLocal, prepareForUser } from "@/lib/sync";
 import { syncManager } from "@/lib/sync-client";
 import type { Locale } from "@/lib/types";
 import { LoginScreen } from "./LoginScreen";
+import { SlowNotice } from "./PageLoading";
 import { CodeScreen } from "./CodeScreen";
 import { clearCodeVerified, isCodeVerified } from "@/lib/otp";
 
@@ -172,9 +173,22 @@ function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function Splash() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setSlow(true), 8000);
+    const blocked = () => setSlow(true);
+    window.addEventListener("lyaqa-db-blocked", blocked);
+    return () => {
+      clearTimeout(id);
+      window.removeEventListener("lyaqa-db-blocked", blocked);
+    };
+  }, []);
   return (
-    <div className="fixed inset-0 grid place-items-center bg-bg">
-      <div className="size-10 animate-spin rounded-full border-2 border-gold/30 border-t-gold" aria-label="loading" />
+    <div className="fixed inset-0 grid place-items-center bg-bg px-6">
+      <div className="flex w-full max-w-sm flex-col items-center gap-6">
+        <div className="size-10 animate-spin rounded-full border-2 border-gold/30 border-t-gold" aria-label="loading" />
+        {slow && <SlowNotice />}
+      </div>
     </div>
   );
 }
@@ -195,7 +209,22 @@ function MigratedToast({ onClose }: { onClose: () => void }) {
 export function Providers({ children }: { children: ReactNode }) {
   useEffect(() => {
     if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      // لما يوصل تحديث للتطبيق ويستلم الـ Service Worker الجديد: نعيد التحميل مرة وحدة
+      // عشان ما تشتغل صفحة من النسخة القديمة وصفحة من الجديدة
+      const hadController = !!navigator.serviceWorker.controller;
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController || reloaded) return;
+        reloaded = true;
+        location.reload();
+      });
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) => {
+          // نشيك على التحديثات لما ترجع للتطبيق
+          document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && reg.update().catch(() => {}));
+        })
+        .catch(() => {});
     }
     navigator.storage?.persist?.().catch(() => {});
   }, []);

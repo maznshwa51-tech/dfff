@@ -3,7 +3,7 @@
 // - ملفات Next الثابتة (/_next/static): من الكاش أولاً (أسماؤها تتغير مع كل بناء)
 // - /api: من الشبكة فقط (Gemini والتقارير تحتاج إنترنت)
 
-const VERSION = "v5";
+const VERSION = "v6";
 const PAGES_CACHE = `pages-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const ROUTES = ["/", "/food", "/training", "/weight", "/stats", "/settings", "/plan"];
@@ -51,7 +51,8 @@ function timeout(ms) {
 async function networkFirst(request, cacheKey) {
   const cache = await caches.open(PAGES_CACHE);
   try {
-    const res = await Promise.race([fetch(request), timeout(4000)]);
+    // 10 ثواني قبل ما نرجع للنسخة المحفوظة (النت البطيء ما يخلط نسخة قديمة بجديدة)
+    const res = await Promise.race([fetch(request), timeout(10000)]);
     if (res.ok) cache.put(cacheKey, res.clone());
     return res;
   } catch {

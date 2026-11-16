@@ -63,6 +63,10 @@ export class AppDB extends Dexie {
     });
     // النسخة 2: الشعارات
     this.version(2).stores({ logos: "id, createdAt" });
+    // لو نسخة ثانية من التطبيق (مثلاً تبويب Chrome قديم) ماسكة القاعدة، نبلغ الواجهة
+    this.on("blocked", () => {
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("lyaqa-db-blocked"));
+    });
   }
 }
 

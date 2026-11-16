@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion } from "framer-motion";
 import { Dumbbell, Footprints, Info, Lightbulb, MessageCircle, Plus, Scale, Sparkles, TriangleAlert, X, Zap } from "lucide-react";
@@ -55,7 +56,7 @@ export default function TodayPage() {
     return { day, alerts };
   }, [settings, data, today, hour]);
 
-  if (!settings || !view || !data) return null;
+  if (!settings || !view || !data) return <PageLoading />;
   const { day, alerts } = view;
   const tg = day.targets;
   const proteinLeft = Math.max(0, Math.round((tg.protein - day.protein) * 10) / 10);

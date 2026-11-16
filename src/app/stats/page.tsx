@@ -1,5 +1,6 @@
 "use client";
 
+import { PageLoading } from "@/components/PageLoading";
 import { Bike, Dumbbell, Flame, Footprints, Scale, Target, UtensilsCrossed } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
@@ -49,7 +50,7 @@ export default function StatsPage() {
     };
   }, [settings, data, range, today]);
 
-  if (!settings || !v) return null;
+  if (!settings || !v) return <PageLoading />;
   const { summary, period } = v;
   const kg = t("common.kg");
 
