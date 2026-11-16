@@ -224,12 +224,15 @@ export async function suggestPlan(req: PlanRequest): Promise<Plan> {
 }
 
 const NUM = { type: Type.NUMBER };
+/** seed ثابت + temperature 0: نفس الموديل يعطي نفس الجواب لنفس الأكل */
+const QUICK_SEED = 1234;
 const QUICK_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     action: { type: Type.STRING, enum: ["ask", "estimate"] },
     question: { type: Type.STRING },
     options: { type: Type.ARRAY, items: { type: Type.STRING } },
+    ref: { type: Type.STRING },
     ...Object.fromEntries(QUICK_KEYS.map((k) => [k, NUM])),
     note: { type: Type.STRING },
   },
@@ -275,9 +278,9 @@ async function quickWithSearch(c: GoogleGenAI, req: QuickRequest, mustEstimate: 
     const res = await c.models.generateContent({
       model: GEMINI_MODEL,
       contents: quickPrompt(req, { search: true }),
-      config: { tools: [{ googleSearch: {} }], temperature: 0, abortSignal: AbortSignal.timeout(20_000) },
+      config: { tools: [{ googleSearch: {} }], temperature: 0, seed: QUICK_SEED, abortSignal: AbortSignal.timeout(20_000) },
     });
-    return validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate);
+    return validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate, req.grams);
   } catch (e) {
     // البحث مو متاح لهذا المفتاح (429/400/403): نوقفه فترة عشان ما نضيّع وقت
     if (e instanceof ApiError && [400, 403, 429].includes(e.status)) searchOffUntil = Date.now() + 6 * 3600_000;
@@ -301,9 +304,9 @@ export async function estimateQuick(req: QuickRequest): Promise<QuickResult> {
           model,
           contents: quickPrompt(req),
           // temperature 0: نفس الوصف يعطي نفس التقدير تقريباً كل مرة
-          config: { responseMimeType: "application/json", responseSchema: QUICK_RESPONSE_SCHEMA, temperature: 0, abortSignal: signal },
+          config: { responseMimeType: "application/json", responseSchema: QUICK_RESPONSE_SCHEMA, temperature: 0, seed: QUICK_SEED, abortSignal: signal },
         });
-        const r = validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate);
+        const r = validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate, req.grams);
         if (!r) throw new InvalidOutput("shape");
         return r;
       },

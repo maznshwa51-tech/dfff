@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { Button, Field, Input, Segmented, Sheet, fmt } from "@/components/ui";
 import { uid } from "@/lib/ids";
 import type { QuickRequest, QuickResult } from "@/lib/quick";
+import { dropCachedQuick, getCachedQuick, setCachedQuick } from "@/lib/quick-cache";
 import { putRow } from "@/lib/repo";
 import { authHeader } from "@/lib/supabase";
 import { MEALS, type FoodEntry, type Locale, type Meal } from "@/lib/types";
@@ -40,7 +41,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
   const [question, setQuestion] = useState<{ question: string; options: string[] } | null>(null);
   const [answer, setAnswer] = useState("");
-  const [estimate, setEstimate] = useState<{ note: string; for: string; range?: { min: number; max: number } } | null>(null);
+  const [estimate, setEstimate] = useState<{ note: string; for: string; range?: { min: number; max: number }; cached?: boolean; req: QuickRequest } | null>(null);
   const saving = useRef(false);
 
   if (open !== wasOpen) {
@@ -77,7 +78,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const askedFor = `${reason.trim()}|${hasGrams ? g : ""}`;
   const stale = estimate != null && estimate.for !== askedFor;
 
-  const ask = async (prev: { q: string; a: string }[]) => {
+  const ask = async (prev: { q: string; a: string }[], fresh = false) => {
     setTouched(true);
     if (!validReason) return;
     setAiErr(null);
@@ -85,6 +86,9 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
     setAiBusy(true);
     try {
       const body: QuickRequest = { locale, description: reason.trim(), kcal: ownKcal ? userKcal : undefined, grams: hasGrams ? g : undefined, answers: prev };
+      // نفس الأكل قدّرناه قبل؟ نرجع نفس الأرقام بالضبط
+      const hit = fresh ? null : getCachedQuick(body);
+      if (hit) return applyEstimate(hit, body, true);
       const res = await fetch("/api/quick", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -96,19 +100,33 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
         setQuestion({ question: r.question, options: r.options });
         setAnswer("");
       } else {
-        setQuestion(null);
-        setMacros({ protein: String(r.protein), carbs: String(r.carbs), fat: String(r.fat) });
-        if (!ownKcal) {
-          setKcal(String(r.kcal));
-          setAiKcal(String(r.kcal));
-        }
-        setEstimate({ note: r.note, for: askedFor, range: !ownKcal && r.kcalMin != null && r.kcalMax != null ? { min: r.kcalMin, max: r.kcalMax } : undefined });
+        setCachedQuick(body, r);
+        applyEstimate(r, body, false);
       }
     } catch {
       setAiErr(navigator.onLine ? "generic" : "offline");
     } finally {
       setAiBusy(false);
     }
+  };
+
+  function applyEstimate(r: Extract<QuickResult, { type: "estimate" }>, req: QuickRequest, cached: boolean) {
+    setQuestion(null);
+    setMacros({ protein: String(r.protein), carbs: String(r.carbs), fat: String(r.fat) });
+    if (!ownKcal) {
+      setKcal(String(r.kcal));
+      setAiKcal(String(r.kcal));
+    }
+    setEstimate({ note: r.note, for: askedFor, range: !ownKcal && r.kcalMin != null && r.kcalMax != null ? { min: r.kcalMin, max: r.kcalMax } : undefined, cached, req });
+  }
+
+  /** تجاهل التقدير المحفوظ واسأل Gemini من جديد */
+  const reestimate = () => {
+    if (!estimate) return;
+    dropCachedQuick(estimate.req);
+    if (aiKcal != null && kcal === aiKcal) setKcal("");
+    setAnswers(estimate.req.answers);
+    void ask(estimate.req.answers, true);
   };
 
   const start = () => {
@@ -246,6 +264,14 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
               {estimate.range && <p className="num">{t("quick.range", { min: fmt(estimate.range.min), max: fmt(estimate.range.max) })}</p>}
               <p>{t("quick.macrosLow")}</p>
               {estimate.note && <p>{estimate.note}</p>}
+              {estimate.cached && (
+                <p>
+                  {t("quick.cached")}{" "}
+                  <button type="button" className="font-semibold text-gold underline" disabled={aiBusy} onClick={reestimate}>
+                    {t("quick.reestimate")}
+                  </button>
+                </p>
+              )}
             </div>
           )}
           {!hasUserKcal && macrosOk && <p className="num text-xs text-muted">{t("quick.kcalFromMacros", { n: fmt(finalKcal) })}</p>}

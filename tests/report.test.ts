@@ -159,43 +159,55 @@ describe("اقتراح يوم كامل", () => {
 });
 
 import { validateQuick } from "@/lib/quick";
+import { normalizeFood } from "@/lib/quick-cache";
+// لقيمات لكل 100 غ (تقريبي): 330-360 سعرة، بروتين 4.5-5.5، كارب 48-55، دهون 13-15
+const LUQ = { action: "estimate", grams: 216, kcal100_min: 330, kcal100_max: 360, protein100_min: 4.5, protein100_max: 5.5, carbs100_min: 48, carbs100_max: 55, fat100_min: 13, fat100_max: 15, note: "12 حبة × 18 غ" };
 describe("الإضافة السريعة", () => {
-  it("سعراتك هي المرجع إذا كتبتها", () => {
-    const r = validateQuick({ action: "estimate", kcal: 300, protein: 3, carbs: 27, fat: 12, note: "كيكات" }, 210, false);
+  it("بدون سعرات: السعرات الأعلى، والبروتين والكارب والدهون الأقل (لكل 100 غ × الوزن)", () => {
+    const r = validateQuick(LUQ, undefined, false);
+    expect(r).toMatchObject({ type: "estimate", kcal: 778, protein: 9.7, carbs: 103.7, fat: 28.1, grams: 216, kcalMin: 713, kcalMax: 778 });
+    // حتى لو انعكس الترتيب
+    expect(validateQuick({ ...LUQ, kcal100_min: 360, kcal100_max: 330, protein100_min: 5.5, protein100_max: 4.5 }, undefined, false)).toMatchObject({ kcal: 778, protein: 9.7 });
+  });
+  it("وزنك أنت يغلب تقدير Gemini", () => {
+    expect(validateQuick(LUQ, undefined, false, 100)).toMatchObject({ kcal: 360, protein: 4.5, carbs: 48, fat: 13, grams: 100 });
+  });
+  it("سعراتك أنت هي المرجع، والقيم ما تتجاوزها", () => {
+    const kitkat = { action: "estimate", grams: 41.5, kcal100_min: 510, kcal100_max: 520, protein100_min: 6, protein100_max: 7, carbs100_min: 58, carbs100_max: 62, fat100_min: 26, fat100_max: 28 };
+    const r = validateQuick(kitkat, 210, false);
     if (r?.type !== "estimate") throw new Error("expected estimate");
     expect(r.kcal).toBe(210);
-    expect(Math.abs(r.protein * 4 + r.carbs * 4 + r.fat * 9 - 210)).toBeLessThan(1.5);
+    expect(r.protein * 4 + r.carbs * 4 + r.fat * 9).toBeLessThanOrEqual(210 * 1.05);
+    expect(r).not.toHaveProperty("kcalMin");
   });
-  it("بدون سعرات: Gemini يقدّر كل شي", () => {
-    const r = validateQuick({ action: "estimate", kcal: 540, protein: 7, carbs: 66, fat: 27, note: "12 لقيمة متوسطة" }, undefined, false);
-    if (r?.type !== "estimate") throw new Error("expected estimate");
-    expect(r.kcal).toBe(540);
-    expect(r.protein * 4 + r.carbs * 4 + r.fat * 9).toBeLessThanOrEqual(540 * 1.05);
-    // بدون kcal من Gemini: نحسبها من الماكروز
-    const r2 = validateQuick({ action: "estimate", protein: 10, carbs: 50, fat: 10 }, undefined, false);
-    expect(r2).toMatchObject({ type: "estimate", kcal: 330 });
-  });
-  it("المدى: السعرات الأعلى، والبروتين والكارب والدهون الأقل", () => {
-    const r = validateQuick(
-      { action: "estimate", kcal_min: 390, kcal_max: 600, protein_min: 5, protein_max: 9, carbs_min: 55, carbs_max: 80, fat_min: 15, fat_max: 26 },
-      undefined,
-      false,
-    );
-    expect(r).toMatchObject({ type: "estimate", kcal: 600, protein: 5, carbs: 55, fat: 15, kcalMin: 390, kcalMax: 600 });
-    // حتى لو انعكس الترتيب
-    expect(validateQuick({ action: "estimate", kcal_min: 600, kcal_max: 390, protein_min: 9, protein_max: 5, carbs_min: 80, carbs_max: 55, fat_min: 26, fat_max: 15 }, undefined, false)).toMatchObject({ kcal: 600, protein: 5, carbs: 55, fat: 15 });
-    // سعراتك أنت: المرجع، والقيم الأقل ما تتجاوزها
-    const u = validateQuick({ action: "estimate", kcal_min: 210, kcal_max: 210, protein_min: 2, protein_max: 3, carbs_min: 24, carbs_max: 28, fat_min: 10, fat_max: 12 }, 210, false);
-    expect(u).toMatchObject({ kcal: 210, protein: 2, carbs: 24, fat: 10 });
-    expect(u).not.toHaveProperty("kcalMin");
-  });
-  it("يحسب القيمة الناقصة من السعرات", () => {
-    expect(validateQuick({ action: "estimate", protein: 25, carbs: 40, question: "null" }, 450, false)).toMatchObject({ type: "estimate", protein: 25, carbs: 40, fat: 21.1 });
-    expect(validateQuick({ action: "estimate", protein: 25, carbs: 40 }, undefined, false)).toBeNull(); // ما نعرف السعرات
+  it("يحسب القيمة الناقصة، ويرفض الأرقام المستحيلة", () => {
+    const { fat100_min: _a, fat100_max: _b, ...noFat } = LUQ;
+    expect(validateQuick(noFat, undefined, false)).toMatchObject({ type: "estimate", fat: 28.8 });
+    expect(validateQuick({ ...LUQ, carbs100_min: 90, carbs100_max: 95 }, undefined, false)).toBeNull(); // أكثر من 100 غ في 100 غ
+    expect(validateQuick({ ...LUQ, kcal100_max: 2000 }, undefined, false)).toBeNull();
+    expect(validateQuick({ ...LUQ, grams: undefined }, undefined, false)).toBeNull(); // ما نعرف الوزن
   });
   it("سؤال توضيحي، وبعد سؤالين لازم تقدير", () => {
-    expect(validateQuick({ action: "ask", question: "كم حبة؟", options: ["5", "10", "", "15", "20"], kcal: 0, protein: 0, carbs: 0, fat: 0 }, undefined, false)).toEqual({ type: "question", question: "كم حبة؟", options: ["5", "10", "15", "20"] });
+    expect(validateQuick({ action: "ask", question: "كم حبة؟", options: ["5", "10", "", "15", "20"], grams: 0 }, undefined, false)).toEqual({ type: "question", question: "كم حبة؟", options: ["5", "10", "15", "20"] });
     expect(validateQuick({ action: "ask", question: "وش نوعه؟" }, 450, true)).toBeNull();
-    expect(validateQuick({ action: "estimate", protein: 1, carbs: 1, fat: 1 }, 900, false)).toBeNull();
+  });
+  it("نفس الأكل بكتابة مختلفة = نفس المفتاح", () => {
+    expect(normalizeFood(" ١٢  لقيمات ")).toBe(normalizeFood("12 لقيمات"));
+    expect(normalizeFood("حبة كيكات")).toBe(normalizeFood("حبه كيكات"));
+  });
+});
+
+describe("الجدول المرجعي", () => {
+  it("إذا الأكل في الجدول: أرقامه الثابتة تغلب أرقام Gemini", () => {
+    // موديلين أعطوا أرقام مختلفة لنفس الأكل ← نفس النتيجة
+    const a = validateQuick({ ...LUQ, ref: "luqaimat", kcal100_min: 300, kcal100_max: 433, protein100_min: 2, protein100_max: 9 }, undefined, false);
+    const b = validateQuick({ ...LUQ, ref: "luqaimat", kcal100_min: 390, kcal100_max: 400, protein100_min: 4, protein100_max: 4 }, undefined, false);
+    expect(a).toEqual(b);
+    expect(a).toMatchObject({ kcal: 778, protein: 9.7 });
+    // id غير معروف ← أرقام Gemini
+    expect(validateQuick({ ...LUQ, ref: "xyz" }, undefined, false)).toMatchObject({ kcal: 778 });
+  });
+  it("السؤال الطويل ينقص لأول سؤال", () => {
+    expect(validateQuick({ action: "ask", question: "كم الكمية؟ وأنواعه شنو؟ وشكراً يا بطل", options: ["صحن"] }, undefined, false)).toMatchObject({ question: "كم الكمية؟" });
   });
 });

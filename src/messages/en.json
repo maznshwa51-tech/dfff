@@ -440,7 +440,9 @@
     "grams": "Weight in grams (optional)",
     "gramsHint": "If you weighed it, the estimate is more accurate. Fine to leave empty",
     "range": "Gemini said {min}–{max} kcal, so we took the higher ({max})",
-    "macrosLow": "Protein, carbs and fat: we took the lower number"
+    "macrosLow": "Protein, carbs and fat: we took the lower number",
+    "cached": "Same as your previous estimate for this food.",
+    "reestimate": "Re-estimate"
   },
   "accent": {
     "title": "Color theme",
