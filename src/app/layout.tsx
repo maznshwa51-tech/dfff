@@ -26,15 +26,17 @@ export const viewport: Viewport = {
 };
 
 // يطبّق اللغة والاتجاه والوضع الداكن قبل ما تظهر الصفحة
-const bootScript = `try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var h=document.documentElement;h.classList.toggle('dark',d);var l=localStorage.getItem('locale')||'ar';h.lang=l;h.dir=l==='ar'?'rtl':'ltr';h.dataset.accent=localStorage.getItem('accent')||'gold'}catch(e){}`;
+const bootScript = `try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var h=document.documentElement;h.classList.toggle('dark',d);var l=localStorage.getItem('locale')||'ar';h.lang=l;h.dir=l==='ar'?'rtl':'ltr';var a=localStorage.getItem('accent')||'gold';h.dataset.accent=a;var q=function(s){return document.querySelector(s)};q('link[rel=manifest]').href='/manifest.webmanifest?accent='+a;q('link[rel=apple-touch-icon]').href='/icons/'+a+'/apple-touch-icon.png';q('link[rel=icon]').href='/icons/'+a+'/icon-192.png'}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning className={`${plex.variable} ${inter.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
+        {/* الأيقونات وملف التطبيق حسب ثيم الألوان (السكربت تحتها يغيّرها قبل ما يقرأها الجوال) */}
+        <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/icons/icon-192.png" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <script dangerouslySetInnerHTML={{ __html: bootScript }} />
       </head>
       <body className="min-h-dvh antialiased">
         <Providers>

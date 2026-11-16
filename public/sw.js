@@ -3,7 +3,7 @@
 // - ملفات Next الثابتة (/_next/static): من الكاش أولاً (أسماؤها تتغير مع كل بناء)
 // - /api: من الشبكة فقط (Gemini والتقارير تحتاج إنترنت)
 
-const VERSION = "v3";
+const VERSION = "v4";
 const PAGES_CACHE = `pages-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
 const ROUTES = ["/", "/food", "/training", "/weight", "/stats", "/settings"];

@@ -51,6 +51,10 @@ function IntlAndTheme({ children }: { children: ReactNode }) {
     } catch {}
     const accent = settings.accent ?? "gold";
     document.documentElement.dataset.accent = accent;
+    // أيقونة التطبيق (الشاشة الرئيسية) حسب الثيم
+    document.querySelector('link[rel="manifest"]')?.setAttribute("href", `/manifest.webmanifest?accent=${accent}`);
+    document.querySelector('link[rel="apple-touch-icon"]')?.setAttribute("href", `/icons/${accent}/apple-touch-icon.png`);
+    document.querySelector('link[rel="icon"]')?.setAttribute("href", `/icons/${accent}/icon-192.png`);
     try {
       localStorage.setItem("accent", accent);
     } catch {}
