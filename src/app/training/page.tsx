@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { motion } from "framer-motion";
 import { Bike, Check, Dumbbell, Flame, Footprints, Pencil, Plus, Sofa, Target } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Button, Card, CardTitle, DayNav, Field, Input, PageHeader, Progress, Segmented, Sheet, fmt } from "@/components/ui";
 import { DayTypeControl } from "@/components/DayTypeControl";
 import { addDays } from "@/lib/dates";
@@ -50,6 +50,7 @@ function TodayWorkout({ date, settings }: { date: string; settings: Settings }) 
   // null = ما فيه جلسة محفوظة، undefined = لسا يحمّل (ما نعرض شي عشان ما يطلع وضع غلط)
   const stored = useLiveQuery(() => getDb().sessions.get(date).then((s) => s ?? null), [date]);
   const [changing, setChanging] = useState(false);
+  const queue = useRef<Promise<void>>(Promise.resolve());
   if (stored === undefined) return <Card className="min-h-48 animate-pulse">{null}</Card>;
   const typeId = plannedFor(date, settings, stored ?? undefined);
   const wtype = types.find((x) => x.id === typeId);
@@ -83,7 +84,17 @@ function TodayWorkout({ date, settings }: { date: string; settings: Settings }) 
       {typeId === "rest" ? (
         <p className="rounded-2xl bg-track/50 p-4 text-[15px] leading-relaxed">{t("training.restDay")}</p>
       ) : wtype?.kind === "rounds" ? (
-        <HomeRounds session={session} onChange={save} />
+        <HomeRounds
+          session={session}
+          onChange={save}
+          onToggle={(i) => {
+            // الضغطات تتنفذ بالترتيب، وكل وحدة تقرأ آخر نسخة من القاعدة (عشان الضغط السريع ما يمسح بعضه)
+            queue.current = queue.current.then(async () => {
+              const cur = (await getDb().sessions.get(date)) ?? session;
+              await save(toggleRound(cur, i));
+            });
+          }}
+        />
       ) : (
         <SimpleWorkout session={session} kind={wtype?.kind ?? "simple"} onChange={save} />
       )}
@@ -98,7 +109,7 @@ function TodayWorkout({ date, settings }: { date: string; settings: Settings }) 
   );
 }
 
-function HomeRounds({ session, onChange }: { session: Session; onChange: (s: Session) => void }) {
+function HomeRounds({ session, onChange, onToggle }: { session: Session; onChange: (s: Session) => void; onToggle: (i: number) => void }) {
   const t = useTranslations();
   const rounds = session.rounds ?? [];
   const doneCount = rounds.filter(Boolean).length;
@@ -116,7 +127,7 @@ function HomeRounds({ session, onChange }: { session: Session; onChange: (s: Ses
         <div key={i} className={`flex items-center gap-3 rounded-2xl p-3 ring-1 transition-colors ${done ? "bg-success/10 ring-success/30" : "bg-card2 ring-line"}`}>
           <motion.button
             whileTap={{ scale: 0.88 }}
-            onClick={() => onChange(toggleRound(session, i))}
+            onClick={() => onToggle(i)}
             aria-pressed={done}
             aria-label={t("training.round", { n: i + 1 })}
             className={`grid size-11 shrink-0 place-items-center rounded-full ring-2 transition-colors ${done ? "bg-success text-white ring-success" : "text-transparent ring-line"}`}

@@ -26,14 +26,13 @@ export const viewport: Viewport = {
 };
 
 // يطبّق اللغة والاتجاه والوضع الداكن قبل ما تظهر الصفحة
-const bootScript = `try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var h=document.documentElement;h.classList.toggle('dark',d);var l=localStorage.getItem('locale')||'ar';h.lang=l;h.dir=l==='ar'?'rtl':'ltr'}catch(e){}`;
+const bootScript = `try{var t=localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);var h=document.documentElement;h.classList.toggle('dark',d);var l=localStorage.getItem('locale')||'ar';h.lang=l;h.dir=l==='ar'?'rtl':'ltr';h.dataset.accent=localStorage.getItem('accent')||'gold'}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning className={`${plex.variable} ${inter.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript }} />
-        {/* الأيقونات هنا مباشرة (مش من metadata) عشان الشعار اللي تختاره يظل بعد التنقل بين الصفحات */}
         <link rel="icon" href="/icons/icon-192.png" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>

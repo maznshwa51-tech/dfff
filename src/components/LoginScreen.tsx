@@ -8,7 +8,7 @@ import { getSupabase } from "@/lib/supabase";
 import { AppLogo } from "./AppLogo";
 import { Button, Field, Input } from "./ui";
 
-type ErrKey = "invalid" | "notConfirmed" | "exists" | "weak" | "offline" | "generic";
+type ErrKey = "invalid" | "notConfirmed" | "exists" | "weak" | "offline" | "generic" | "googleDisabled";
 
 function mapError(e: { code?: string; message?: string; status?: number } | null): ErrKey {
   if (typeof navigator !== "undefined" && !navigator.onLine) return "offline";
@@ -55,6 +55,18 @@ export function LoginScreen() {
 
   const google = async () => {
     setError(null);
+    // نتأكد إن Google مفعّل في Supabase قبل ما نحولك (بدل صفحة خطأ غريبة)
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+      const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } });
+      if (res.ok) {
+        const s = (await res.json()) as { external?: { google?: boolean } };
+        if (s.external && !s.external.google) return setError("googleDisabled");
+      }
+    } catch {
+      if (!navigator.onLine) return setError("offline");
+    }
     const { error } = (await getSupabase()?.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.origin } })) ?? {};
     if (error) setError(mapError(error));
   };

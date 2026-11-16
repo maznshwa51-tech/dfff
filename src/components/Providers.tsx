@@ -14,7 +14,8 @@ import { clearLocal, prepareForUser } from "@/lib/sync";
 import { syncManager } from "@/lib/sync-client";
 import type { Locale } from "@/lib/types";
 import { LoginScreen } from "./LoginScreen";
-import { LogoIcons } from "./AppLogo";
+import { CodeScreen } from "./CodeScreen";
+import { clearCodeVerified, isCodeVerified } from "@/lib/otp";
 
 const MESSAGES = { ar, en };
 
@@ -48,8 +49,18 @@ function IntlAndTheme({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem("theme", t);
     } catch {}
+    const accent = settings.accent ?? "gold";
+    document.documentElement.dataset.accent = accent;
+    try {
+      localStorage.setItem("accent", accent);
+    } catch {}
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => document.documentElement.classList.toggle("dark", t === "dark" || (t === "system" && mq.matches));
+    const apply = () => {
+      const dark = t === "dark" || (t === "system" && mq.matches);
+      document.documentElement.classList.toggle("dark", dark);
+      // لون شريط الجوال (فوق وتحت) = لون خلفية التطبيق
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", dark ? "#0a0a0b" : "#f6f5f2"));
+    };
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
@@ -97,7 +108,10 @@ function AuthGate({ children }: { children: ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  const userId = session?.user.id;
+  // بعد تسجيل الدخول لازم رمز التحقق على الإيميل قبل ما نفتح التطبيق أو نزامن أي بيانات
+  const [codeOkFor, setCodeOkFor] = useState<string | null>(null);
+  const verified = !!session && (codeOkFor === session.user.id || isCodeVerified(session));
+  const userId = verified ? session?.user.id : undefined;
   useEffect(() => {
     const sb = getSupabase();
     if (!sb || !userId) return;
@@ -123,12 +137,27 @@ function AuthGate({ children }: { children: ReactNode }) {
     const db = getDb();
     // نمسح النسخة المحلية فقط إذا كل شي ارتفع (عشان ما يضيع شي)
     if ((await db.outbox.count()) === 0) await clearLocal(db);
+    clearCodeVerified();
+    setCodeOkFor(null);
     await getSupabase()?.auth.signOut();
     setBooted(false);
   };
 
   if (session === undefined) return <Splash />;
   if (SUPABASE_ENABLED && !session) return <LoginScreen />;
+  if (SUPABASE_ENABLED && session && !verified)
+    return (
+      <CodeScreen
+        key={session.user.id}
+        email={session.user.email ?? ""}
+        userId={session.user.id}
+        onVerified={() => setCodeOkFor(session.user.id)}
+        onCancel={async () => {
+          clearCodeVerified();
+          await getSupabase()?.auth.signOut();
+        }}
+      />
+    );
   if (!booted) return <Splash />;
   return (
     <AuthCtx.Provider value={{ enabled: SUPABASE_ENABLED, user: session?.user ?? null, signOut }}>
@@ -169,7 +198,6 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user" transition={{ type: "spring", stiffness: 420, damping: 34 }}>
       <IntlAndTheme>
-        <LogoIcons />
         <AuthGate>{children}</AuthGate>
       </IntlAndTheme>
     </MotionConfig>

@@ -11,9 +11,11 @@ export function serverReportDeps(sb: SupabaseClient = adminClient()!): ReportDep
   return {
     now: new Date(),
     toleranceMinutes: Number(process.env.REPORT_TOLERANCE_MINUTES ?? 60),
+    aiLimit: Number(process.env.REPORT_AI_LIMIT ?? 15),
     appUrl: process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
     async listSettings() {
-      const { data, error } = await sb.from("records").select("user_id,data").eq("table_name", "settings").eq("deleted", false);
+      // المستخدمين اللي مفعّلين التقرير بس
+      const { data, error } = await sb.from("records").select("user_id,data").eq("table_name", "settings").eq("deleted", false).eq("data->report->>enabled", "true").limit(5000);
       if (error) throw error;
       return (data ?? []).map((r) => ({ userId: r.user_id as string, settings: r.data as Partial<Settings> }));
     },

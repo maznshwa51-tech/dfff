@@ -35,7 +35,7 @@
   --line: rgb(0 0 0 / 0.07);
   --track: #ebe8e1;
   --seg: #ffffff;
-  --gold: #9a7425;
+  --gold: #8a6820;
   --gold-ink: #ffffff;
   --success: #1f9d55;
   --danger: #d23f3f;
@@ -70,6 +70,26 @@
   --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -14px rgb(0 0 0 / 0.7);
   color-scheme: dark;
 }
+
+/* ثيمات الألوان (اللون الرئيسي فقط). تنطبق على الصفحة كاملة أو على عنصر (مثل عينات الثيم في الإعدادات) */
+[data-accent="gold"] { --gold: #8a6820; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+[data-accent="emerald"] { --gold: #047857; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+[data-accent="ocean"] { --gold: #1d4ed8; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+[data-accent="rose"] { --gold: #be123c; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+[data-accent="violet"] { --gold: #6d28d9; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+[data-accent="silver"] { --gold: #52525b; --gold-ink: #ffffff; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="gold"],
+.dark [data-accent="gold"] { --gold: #d4af6a; --gold-ink: #1a1408; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="emerald"],
+.dark [data-accent="emerald"] { --gold: #34d399; --gold-ink: #04261a; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="ocean"],
+.dark [data-accent="ocean"] { --gold: #60a5fa; --gold-ink: #0b1a33; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="rose"],
+.dark [data-accent="rose"] { --gold: #fb7185; --gold-ink: #3a0a12; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="violet"],
+.dark [data-accent="violet"] { --gold: #a78bfa; --gold-ink: #1e1240; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
+.dark[data-accent="silver"],
+.dark [data-accent="silver"] { --gold: #d4d4d8; --gold-ink: #18181b; --color-gold: var(--gold); --color-gold-ink: var(--gold-ink); }
 
 html,
 body {

@@ -130,7 +130,8 @@
       "exists": "An account with this email exists, sign in",
       "weak": "Password too weak (at least 6 characters)",
       "offline": "No internet connection",
-      "generic": "Something went wrong, try again"
+      "generic": "Something went wrong, try again",
+      "googleDisabled": "Google sign-in isn't enabled in Supabase yet. Use email and password."
     },
     "migrated": "Your on-device data was moved to your account ✓"
   },
@@ -426,17 +427,30 @@
     "label": "Quick add",
     "note": "For small things you don't want in your library. Counts toward today's calories only (no protein, carbs or fat)."
   },
-  "logo": {
-    "title": "App logo",
-    "upload": "Upload logo",
-    "default": "Default",
-    "use": "Use this logo",
-    "delete": "Delete logo",
-    "deleteConfirm": "Delete this logo?",
-    "active": "In use",
-    "hint": "Every logo you upload is saved here and synced to your account, so you can switch any time.",
-    "homeNote": "The logo changes inside the app right away. Home-screen icon: on iPhone/iPad remove the app from the home screen and add it again after changing the logo.",
-    "invalid": "Couldn't read that image, try another one",
-    "limit": "Limit reached (12 logos). Delete one first."
+  "accent": {
+    "title": "Color theme",
+    "hint": "The logo stays the same; the app's main color follows the theme.",
+    "gold": "Gold",
+    "emerald": "Emerald",
+    "ocean": "Ocean",
+    "rose": "Rose",
+    "violet": "Violet",
+    "silver": "Silver"
+  },
+  "code": {
+    "title": "Verification code",
+    "sentTo": "We sent a verification code to",
+    "label": "Enter the code",
+    "verify": "Verify & continue",
+    "resend": "Send the code again",
+    "resendIn": "You can resend in {s}s",
+    "otherAccount": "Use another account",
+    "spam": "Didn't get it? Check your Spam folder.",
+    "errors": {
+      "wrong": "Wrong or expired code. Try again or request a new one.",
+      "rateLimit": "Too many requests. Wait a minute, then request a new code.",
+      "sendFailed": "We couldn't send the code. If it keeps happening, contact the app admin.",
+      "offline": "No internet connection."
+    }
   }
 }

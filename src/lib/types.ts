@@ -8,6 +8,8 @@ export const INTENSITIES: Intensity[] = ["light", "medium", "high"];
 export type DayType = "training" | "rest";
 export type Locale = "ar" | "en";
 export type Theme = "system" | "light" | "dark";
+export type Accent = "gold" | "emerald" | "ocean" | "rose" | "violet" | "silver";
+export const ACCENTS: Accent[] = ["gold", "emerald", "ocean", "rose", "violet", "silver"];
 export type ReportChannel = "whatsapp" | "email" | "both";
 
 export interface Macros {
@@ -142,6 +144,8 @@ export interface Settings {
   lowProteinAlert: number;
   weeklyLossAlertKg: number;
   theme: Theme;
+  /** لون الثيم */
+  accent?: Accent;
   locale: Locale;
   defaultUnit: Unit;
   report: {

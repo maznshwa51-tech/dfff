@@ -49,7 +49,7 @@ describe("نص التقرير", () => {
 });
 
 describe("وقت الإرسال", () => {
-  const s = { ...S, report: { ...S.report, time: "21:30", timezone: "Asia/Dubai" } };
+  const s = { ...S, report: { ...S.report, enabled: true, time: "21:30", timezone: "Asia/Dubai" } };
   it("يحسب حسب توقيت دبي مع هامش", () => {
     expect(isDue(s, new Date("2026-11-14T17:30:00Z"), 0)).toEqual({ due: true, date: DATE }); // 21:30 دبي
     expect(isDue(s, new Date("2026-11-14T17:00:00Z"), 0).due).toBe(false); // 21:00
@@ -65,8 +65,9 @@ function fakeDeps(over: Partial<ReportDeps> = {}) {
     now: new Date("2026-11-14T17:40:00Z"),
     toleranceMinutes: 0,
     listSettings: async () => [
-      { userId: "u1", settings: { ...S, report: { ...S.report, channel: "both", whatsapp: "971500000000" } } },
-      { userId: "u2", settings: { ...S, report: { ...S.report, time: "23:00" } } },
+      { userId: "u1", settings: { ...S, report: { ...S.report, enabled: true, channel: "both", whatsapp: "971500000000" } } },
+      { userId: "u2", settings: { ...S, report: { ...S.report, enabled: true, time: "23:00" } } },
+      { userId: "u3", settings: { ...S } }, // ما فعّل التقرير
     ],
     loadData: async () => ({ raw, types: [] }),
     userEmail: async (id) => `${id}@example.com`,
@@ -95,6 +96,23 @@ describe("مهمة التقرير اليومي", () => {
     const res = await sendReportFor(deps, "u1", { ...S, report: { ...S.report, channel: "both", whatsapp: "9715" } }, DATE);
     expect(res).toEqual([{ channel: "email", ok: true }, { channel: "whatsapp", ok: false, error: "WhatsApp 401" }]);
     expect(sent).toHaveLength(1);
+  });
+});
+
+describe("مدرسة كاملة (780 مستخدم)", () => {
+  it("يرسل للكل بالتوازي، وGemini لعدد محدود، وما يتجاوز الوقت", async () => {
+    let ai = 0;
+    const users = Array.from({ length: 780 }, (_, i) => ({ userId: `u${i}`, settings: { ...S, report: { ...S.report, enabled: true } } }));
+    const { deps, sent } = fakeDeps({ listSettings: async () => users, encourage: async () => { ai++; return "تشجيع"; }, aiLimit: 15, concurrency: 10 });
+    const t0 = Date.now();
+    const out = await runDailyReports(deps);
+    expect(out).toHaveLength(780);
+    expect(sent).toHaveLength(780);
+    expect(ai).toBe(15);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+  it("الافتراضي: التقرير مطفي للمستخدمين الجدد", () => {
+    expect(S.report.enabled).toBe(false);
   });
 });
 

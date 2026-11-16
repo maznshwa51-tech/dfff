@@ -21,9 +21,11 @@ export const DEFAULT_SETTINGS: Settings = {
   lowProteinAlert: 80,
   weeklyLossAlertKg: 0.5,
   theme: "system",
+  accent: "gold",
   locale: "ar",
   defaultUnit: "g",
-  report: { enabled: true, time: "21:30", timezone: "Asia/Dubai", channel: "email" },
+  // التقرير اختياري: كل مستخدم يفعّله من الإعدادات (مهم لو التطبيق لأكثر من شخص بسبب حدود الخدمات المجانية)
+  report: { enabled: false, time: "21:30", timezone: "Asia/Dubai", channel: "email" },
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
