@@ -3,7 +3,7 @@ import "server-only";
 import { ApiError, GoogleGenAI, Type } from "@google/genai";
 import { LABEL_PROMPT, validateLabel, type LabelErrorCode, type LabelResult } from "../label";
 import { planPrompt, validatePlan, type Plan, type PlanRequest } from "../plan";
-import { MAX_QUESTIONS, quickPrompt, validateQuick, type QuickRequest, type QuickResult } from "../quick";
+import { MAX_QUESTIONS, QUICK_KEYS, quickPrompt, validateQuick, type QuickRequest, type QuickResult } from "../quick";
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 /**
@@ -223,48 +223,93 @@ export async function suggestPlan(req: PlanRequest): Promise<Plan> {
   }
 }
 
+const NUM = { type: Type.NUMBER };
 const QUICK_RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     action: { type: Type.STRING, enum: ["ask", "estimate"] },
     question: { type: Type.STRING },
     options: { type: Type.ARRAY, items: { type: Type.STRING } },
-    kcal: { type: Type.NUMBER },
-    protein: { type: Type.NUMBER },
-    carbs: { type: Type.NUMBER },
-    fat: { type: Type.NUMBER },
+    ...Object.fromEntries(QUICK_KEYS.map((k) => [k, NUM])),
     note: { type: Type.STRING },
   },
-  required: ["action", "kcal", "protein", "carbs", "fat"],
+  required: ["action", ...QUICK_KEYS],
 };
 
-/** تقدير الماكروز للسعرات السريعة (ممكن يرجع سؤال توضيحي) */
+/**
+ * للإضافة السريعة الدقة أهم من السرعة: الموديلات القوية أولاً، والخفيفة احتياط.
+ * تقدر تغيّرها بـ GEMINI_QUICK_MODELS
+ */
+const QUICK_CHAIN = [
+  ...new Set([
+    ...(process.env.GEMINI_QUICK_MODELS || `${GEMINI_MODEL},gemini-3.5-flash`).split(",").map((m) => m.trim()).filter(Boolean),
+    ...FAST_CHAIN,
+  ]),
+];
+
+/**
+ * البحث في Google (Grounding): يشتغل إذا حسابك في Gemini يسمح فيه (الخطة المجانية غالباً ما تسمح).
+ * إذا رفض، نوقفه 6 ساعات ونكمّل بمعرفة Gemini بدون بحث. توقفه نهائياً بـ GEMINI_WEB_SEARCH=off
+ */
+const SEARCH_ON = (process.env.GEMINI_WEB_SEARCH || "on") !== "off";
+let searchOffUntil = 0;
+
+function parseJsonLoose(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const a = text.indexOf("{");
+    const b = text.lastIndexOf("}");
+    if (a < 0 || b <= a) throw new InvalidOutput("json");
+    try {
+      return JSON.parse(text.slice(a, b + 1));
+    } catch {
+      throw new InvalidOutput("json");
+    }
+  }
+}
+
+async function quickWithSearch(c: GoogleGenAI, req: QuickRequest, mustEstimate: boolean): Promise<QuickResult | null> {
+  if (!SEARCH_ON || Date.now() < searchOffUntil) return null;
+  try {
+    const res = await c.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: quickPrompt(req, { search: true }),
+      config: { tools: [{ googleSearch: {} }], temperature: 0, abortSignal: AbortSignal.timeout(20_000) },
+    });
+    return validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate);
+  } catch (e) {
+    // البحث مو متاح لهذا المفتاح (429/400/403): نوقفه فترة عشان ما نضيّع وقت
+    if (e instanceof ApiError && [400, 403, 429].includes(e.status)) searchOffUntil = Date.now() + 6 * 3600_000;
+    console.warn(`Gemini web search skipped (${e instanceof ApiError ? e.status : (e as Error).name})`);
+    return null;
+  }
+}
+
+/** تقدير السعرات والماكروز للإضافة السريعة (ممكن يرجع سؤال توضيحي) */
 export async function estimateQuick(req: QuickRequest): Promise<QuickResult> {
   const c = client();
   if (!c) throw new GeminiError("no_key", 503);
   const mustEstimate = req.answers.length >= MAX_QUESTIONS;
+  const t0 = Date.now();
+  const searched = await quickWithSearch(c, req, mustEstimate);
+  if (searched) return searched;
   try {
     return await withModels(
       async (model, signal) => {
         const res = await c.models.generateContent({
           model,
           contents: quickPrompt(req),
-          // temperature 0: نفس الوصف يعطي نفس التقدير كل مرة
+          // temperature 0: نفس الوصف يعطي نفس التقدير تقريباً كل مرة
           config: { responseMimeType: "application/json", responseSchema: QUICK_RESPONSE_SCHEMA, temperature: 0, abortSignal: signal },
         });
-        let json: unknown;
-        try {
-          json = JSON.parse(res.text ?? "");
-        } catch {
-          throw new InvalidOutput("json");
-        }
-        const r = validateQuick(json, req.kcal, mustEstimate);
+        const r = validateQuick(parseJsonLoose(res.text ?? ""), req.kcal, mustEstimate);
         if (!r) throw new InvalidOutput("shape");
         return r;
       },
-      55_000,
-      12_000,
-      FAST_CHAIN,
+      Math.max(30_000, 55_000 - (Date.now() - t0)), // المجموع ما يتجاوز حد Vercel (60 ثانية)
+      20_000,
+      QUICK_CHAIN,
     );
   } catch (e) {
     if (e instanceof GeminiError) throw e;

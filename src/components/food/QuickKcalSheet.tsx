@@ -18,14 +18,18 @@ type MacroKey = "protein" | "carbs" | "fat";
 /**
  * إضافة سريعة بدون المكتبة (مثلاً: 12 لقيمات).
  * - وش أكلت: إجباري (ومعه الكمية)
- * - السعرات: اختيارية (أنت تكتبها أو Gemini يقدّرها)
- * - البروتين والكارب والدهون: إجبارية (Gemini يقدّرها أو تكتبها أنت)
+ * - السعرات: اختيارية (أنت تكتبها أو Gemini يقدّرها، وإذا أعطى مدى نأخذ الأعلى)
+ * - الوزن بالغرام: اختياري (يخلي التقدير أدق)
+ * - البروتين والكارب والدهون: إجبارية (Gemini يقدّرها، ونأخذ الأقل، أو تكتبها أنت)
  */
 export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose: () => void; date: string }) {
   const t = useTranslations();
   const locale = useLocale() as Locale;
   const [reason, setReason] = useState("");
   const [kcal, setKcal] = useState("");
+  const [grams, setGrams] = useState("");
+  /** السعرات اللي حطها Gemini (مو أنت): إذا عدت التقدير ما نعاملها كأنها رقمك */
+  const [aiKcal, setAiKcal] = useState<string | null>(null);
   const [macros, setMacros] = useState<Record<MacroKey, string>>({ protein: "", carbs: "", fat: "" });
   const [meal, setMeal] = useState<Meal>(defaultMeal);
   const [touched, setTouched] = useState(false);
@@ -36,7 +40,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
   const [question, setQuestion] = useState<{ question: string; options: string[] } | null>(null);
   const [answer, setAnswer] = useState("");
-  const [estimate, setEstimate] = useState<{ note: string; for: string } | null>(null);
+  const [estimate, setEstimate] = useState<{ note: string; for: string; range?: { min: number; max: number } } | null>(null);
   const saving = useRef(false);
 
   if (open !== wasOpen) {
@@ -44,6 +48,8 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
     if (open) {
       setReason("");
       setKcal("");
+      setGrams("");
+      setAiKcal(null);
       setMacros({ protein: "", carbs: "", fat: "" });
       setMeal(defaultMeal());
       setTouched(false);
@@ -63,9 +69,13 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
   const hasUserKcal = Number.isFinite(userKcal) && userKcal > 0 && userKcal <= 5000;
   const m = { protein: num(macros.protein), carbs: num(macros.carbs), fat: num(macros.fat) };
   const macrosOk = [m.protein, m.carbs, m.fat].every((x) => Number.isFinite(x)) && m.protein + m.carbs + m.fat > 0;
+  const ownKcal = hasUserKcal && kcal !== aiKcal;
   const finalKcal = hasUserKcal ? userKcal : macrosOk ? Math.round(m.protein * 4 + m.carbs * 4 + m.fat * 9) : 0;
+  const g = Math.round(parseFloat(grams));
+  const hasGrams = Number.isFinite(g) && g > 0 && g <= 5000;
   const validReason = reason.trim().length > 0;
-  const stale = estimate != null && estimate.for !== reason.trim();
+  const askedFor = `${reason.trim()}|${hasGrams ? g : ""}`;
+  const stale = estimate != null && estimate.for !== askedFor;
 
   const ask = async (prev: { q: string; a: string }[]) => {
     setTouched(true);
@@ -74,7 +84,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
     if (!navigator.onLine) return setAiErr("offline");
     setAiBusy(true);
     try {
-      const body: QuickRequest = { locale, description: reason.trim(), kcal: hasUserKcal ? userKcal : undefined, answers: prev };
+      const body: QuickRequest = { locale, description: reason.trim(), kcal: ownKcal ? userKcal : undefined, grams: hasGrams ? g : undefined, answers: prev };
       const res = await fetch("/api/quick", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify(body) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -88,8 +98,11 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
       } else {
         setQuestion(null);
         setMacros({ protein: String(r.protein), carbs: String(r.carbs), fat: String(r.fat) });
-        if (!hasUserKcal) setKcal(String(r.kcal));
-        setEstimate({ note: r.note, for: reason.trim() });
+        if (!ownKcal) {
+          setKcal(String(r.kcal));
+          setAiKcal(String(r.kcal));
+        }
+        setEstimate({ note: r.note, for: askedFor, range: !ownKcal && r.kcalMin != null && r.kcalMax != null ? { min: r.kcalMin, max: r.kcalMax } : undefined });
       }
     } catch {
       setAiErr(navigator.onLine ? "generic" : "offline");
@@ -120,7 +133,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
       quick: true,
       date,
       meal,
-      name: reason.trim().slice(0, 80),
+      name: (hasGrams ? `${reason.trim().slice(0, 70)} · ${g}${t("common.units.g")}` : reason.trim().slice(0, 80)),
       amount: finalKcal,
       unit: "g",
       kcal: finalKcal,
@@ -145,6 +158,10 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
         </Field>
         {touched && !validReason && <p className="text-sm text-danger">{t("quick.reasonRequired")}</p>}
 
+        <Field label={t("quick.grams")} hint={t("quick.gramsHint")}>
+          <Input type="number" inputMode="numeric" min="1" max="5000" value={grams} onChange={(e) => setGrams(e.target.value)} className="num" aria-label={t("quick.grams")} />
+        </Field>
+
         <Field label={t("quick.kcal")} hint={t("quick.kcalHint")}>
           <Input type="number" inputMode="numeric" min="1" max="5000" value={kcal} onChange={(e) => setKcal(e.target.value)} className="num text-2xl font-bold" aria-label={t("quick.kcal")} />
         </Field>
@@ -161,7 +178,7 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
           <p className="text-[13px] font-semibold">{t("quick.macrosTitle")}</p>
           {!question && (
             <Button type="button" variant="soft" className="w-full" icon={aiBusy ? LoaderCircle : Sparkles} disabled={aiBusy || !validReason} onClick={start}>
-              {aiBusy ? t("quick.estimating") : hasUserKcal ? t("quick.estimate") : t("quick.estimateAll")}
+              {aiBusy ? t("quick.estimating") : ownKcal ? t("quick.estimate") : t("quick.estimateAll")}
             </Button>
           )}
 
@@ -224,7 +241,13 @@ export function QuickKcalSheet({ open, onClose, date }: { open: boolean; onClose
               </Field>
             ))}
           </div>
-          {estimate?.note && !stale && <p className="text-xs text-muted">{estimate.note}</p>}
+          {estimate && !stale && (
+            <div className="space-y-1 text-xs text-muted">
+              {estimate.range && <p className="num">{t("quick.range", { min: fmt(estimate.range.min), max: fmt(estimate.range.max) })}</p>}
+              <p>{t("quick.macrosLow")}</p>
+              {estimate.note && <p>{estimate.note}</p>}
+            </div>
+          )}
           {!hasUserKcal && macrosOk && <p className="num text-xs text-muted">{t("quick.kcalFromMacros", { n: fmt(finalKcal) })}</p>}
           {touched && !macrosOk && <p className="text-sm text-danger">{t("quick.macrosRequired")}</p>}
           {aiErr && (

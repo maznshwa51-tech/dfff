@@ -170,10 +170,24 @@ describe("الإضافة السريعة", () => {
     const r = validateQuick({ action: "estimate", kcal: 540, protein: 7, carbs: 66, fat: 27, note: "12 لقيمة متوسطة" }, undefined, false);
     if (r?.type !== "estimate") throw new Error("expected estimate");
     expect(r.kcal).toBe(540);
-    expect(Math.abs(r.protein * 4 + r.carbs * 4 + r.fat * 9 - 540)).toBeLessThan(2);
+    expect(r.protein * 4 + r.carbs * 4 + r.fat * 9).toBeLessThanOrEqual(540 * 1.05);
     // بدون kcal من Gemini: نحسبها من الماكروز
     const r2 = validateQuick({ action: "estimate", protein: 10, carbs: 50, fat: 10 }, undefined, false);
     expect(r2).toMatchObject({ type: "estimate", kcal: 330 });
+  });
+  it("المدى: السعرات الأعلى، والبروتين والكارب والدهون الأقل", () => {
+    const r = validateQuick(
+      { action: "estimate", kcal_min: 390, kcal_max: 600, protein_min: 5, protein_max: 9, carbs_min: 55, carbs_max: 80, fat_min: 15, fat_max: 26 },
+      undefined,
+      false,
+    );
+    expect(r).toMatchObject({ type: "estimate", kcal: 600, protein: 5, carbs: 55, fat: 15, kcalMin: 390, kcalMax: 600 });
+    // حتى لو انعكس الترتيب
+    expect(validateQuick({ action: "estimate", kcal_min: 600, kcal_max: 390, protein_min: 9, protein_max: 5, carbs_min: 80, carbs_max: 55, fat_min: 26, fat_max: 15 }, undefined, false)).toMatchObject({ kcal: 600, protein: 5, carbs: 55, fat: 15 });
+    // سعراتك أنت: المرجع، والقيم الأقل ما تتجاوزها
+    const u = validateQuick({ action: "estimate", kcal_min: 210, kcal_max: 210, protein_min: 2, protein_max: 3, carbs_min: 24, carbs_max: 28, fat_min: 10, fat_max: 12 }, 210, false);
+    expect(u).toMatchObject({ kcal: 210, protein: 2, carbs: 24, fat: 10 });
+    expect(u).not.toHaveProperty("kcalMin");
   });
   it("يحسب القيمة الناقصة من السعرات", () => {
     expect(validateQuick({ action: "estimate", protein: 25, carbs: 40, question: "null" }, 450, false)).toMatchObject({ type: "estimate", protein: 25, carbs: 40, fat: 21.1 });

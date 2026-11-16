@@ -426,7 +426,7 @@
     "label": "Quick add",
     "note": "For things you don't want in your library. Gemini estimates from what you ate and the amount, and may ask a short question.",
     "estimate": "Estimate with Gemini",
-    "estimating": "Gemini is estimating…",
+    "estimating": "Gemini is looking it up…",
     "answerPlaceholder": "or type your answer",
     "send": "Send",
     "dontKnow": "Not sure, just estimate",
@@ -436,7 +436,11 @@
     "macrosTitle": "Protein, carbs & fat (required)",
     "estimateAll": "Estimate calories & macros with Gemini",
     "macrosRequired": "Fill protein, carbs and fat, or let Gemini estimate them",
-    "kcalFromMacros": "Calories calculated from macros: {n}"
+    "kcalFromMacros": "Calories calculated from macros: {n}",
+    "grams": "Weight in grams (optional)",
+    "gramsHint": "If you weighed it, the estimate is more accurate. Fine to leave empty",
+    "range": "Gemini said {min}–{max} kcal, so we took the higher ({max})",
+    "macrosLow": "Protein, carbs and fat: we took the lower number"
   },
   "accent": {
     "title": "Color theme",
