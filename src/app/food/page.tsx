@@ -1,7 +1,8 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, RotateCcw, Search, Star, Trash2, Zap } from "lucide-react";
+import { Plus, RotateCcw, Search, Sparkles, Star, Trash2, Zap } from "lucide-react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { AddFoodSheet } from "@/components/food/AddFoodSheet";
@@ -125,6 +126,9 @@ function FoodLog() {
           <Button variant="soft" icon={Zap} className="col-span-2" onClick={() => setSheet("quick")}>
             {t("quick.title")}
           </Button>
+          <Link href="/plan" className="col-span-2 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-gold/12 text-[15px] font-semibold text-gold">
+            <Sparkles className="size-[18px]" /> {t("plan.homeButton")}
+          </Link>
         </div>
       </Card>
 

@@ -2,6 +2,7 @@ import "server-only";
 // كل طلبات Gemini تمر من السيرفر فقط. المفتاح GEMINI_API_KEY ما يوصل للمتصفح أبداً
 import { ApiError, GoogleGenAI, Type } from "@google/genai";
 import { LABEL_PROMPT, validateLabel, type LabelErrorCode, type LabelResult } from "../label";
+import { planPrompt, validatePlan, type Plan, type PlanRequest } from "../plan";
 
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 /**
@@ -143,4 +144,57 @@ export async function encouragement(prompt: string): Promise<string | null> {
     console.warn("encouragement failed", e instanceof ApiError ? e.status : e);
     return null;
   }
+}
+
+const PLAN_RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    meals: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          meal: { type: Type.STRING, enum: ["breakfast", "lunch", "dinner", "snack"] },
+          items: {
+            type: Type.ARRAY,
+            items: { type: Type.OBJECT, properties: { food_id: { type: Type.STRING }, amount: { type: Type.NUMBER } }, required: ["food_id", "amount"] },
+          },
+        },
+        required: ["meal", "items"],
+      },
+    },
+    tip: { type: Type.STRING },
+  },
+  required: ["meals", "tip"],
+};
+
+/** اقتراح أكل يوم كامل من أكلات المستخدم (نرسل أسماء الأكلات وقيمها بس) */
+export async function suggestPlan(req: PlanRequest): Promise<Plan> {
+  const c = client();
+  if (!c) throw new GeminiError("no_key", 503);
+  let text: string | undefined;
+  try {
+    const res = await withModels(
+      (model, signal) =>
+        c.models.generateContent({
+          model,
+          contents: planPrompt(req),
+          config: { responseMimeType: "application/json", responseSchema: PLAN_RESPONSE_SCHEMA, temperature: 0.7, abortSignal: signal },
+        }),
+      55_000,
+      25_000,
+    );
+    text = res.text;
+  } catch (e) {
+    throw mapError(e);
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(text ?? "");
+  } catch {
+    throw new GeminiError("invalid", 502);
+  }
+  const plan = validatePlan(json, req.foods);
+  if (!plan) throw new GeminiError("invalid", 502);
+  return plan;
 }

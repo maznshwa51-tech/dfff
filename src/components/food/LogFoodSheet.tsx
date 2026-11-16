@@ -1,6 +1,6 @@
 "use client";
 
-import { History } from "lucide-react";
+import { History, Sparkles } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { Button, Field, Input, Segmented, Sheet, fmt } from "@/components/ui";
@@ -27,6 +27,7 @@ export function LogFoodSheet({
   date,
   meal: mealProp,
   initialAmount,
+  suggestedAmount,
   onClose,
   onLogged,
 }: {
@@ -34,6 +35,8 @@ export function LogFoodSheet({
   date: string;
   meal?: Meal;
   initialAmount?: number | null;
+  /** كمية مقترحة (من اقتراح اليوم الكامل) تظهر كزر، والكمية النهائية تكتبها أنت */
+  suggestedAmount?: number;
   onClose: () => void;
   onLogged?: () => void;
 }) {
@@ -116,8 +119,14 @@ export function LogFoodSheet({
             className="num text-2xl font-bold"
           />
         </Field>
+        {suggestedAmount != null && (
+          <button type="button" onClick={() => setAmount(String(suggestedAmount))} className="me-2 inline-flex items-center gap-1.5 rounded-full bg-gold/12 px-3.5 py-2 text-sm font-semibold text-gold">
+            <Sparkles className="size-4" />
+            {t("plan.suggested", { amount: fmt(suggestedAmount), unit })}
+          </button>
+        )}
         {food.lastAmount != null && (
-          <button type="button" onClick={() => setAmount(String(food.lastAmount))} className="flex items-center gap-1.5 rounded-full bg-gold/12 px-3.5 py-2 text-sm font-semibold text-gold">
+          <button type="button" onClick={() => setAmount(String(food.lastAmount))} className="inline-flex items-center gap-1.5 rounded-full bg-gold/12 px-3.5 py-2 text-sm font-semibold text-gold">
             <History className="size-4" />
             {t("food.lastAmount", { amount: fmt(food.lastAmount, 1), unit })}
           </button>

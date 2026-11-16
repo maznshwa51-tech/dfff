@@ -2,7 +2,7 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion } from "framer-motion";
-import { Dumbbell, Footprints, Info, Lightbulb, MessageCircle, Plus, Scale, TriangleAlert, X, Zap } from "lucide-react";
+import { Dumbbell, Footprints, Info, Lightbulb, MessageCircle, Plus, Scale, Sparkles, TriangleAlert, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
@@ -174,6 +174,9 @@ export default function TodayPage() {
           <div className="grid content-start gap-3">
             <Link href="/food" className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gold text-[15px] font-semibold text-gold-ink shadow-soft transition active:scale-[0.98]">
               <Plus className="size-5" /> {t("home.logFood")}
+            </Link>
+            <Link href="/plan" className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-gold/12 text-[15px] font-semibold text-gold transition active:scale-[0.98]">
+              <Sparkles className="size-5" /> {t("plan.homeButton")}
             </Link>
             <button onClick={share} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-card text-[15px] font-semibold text-success shadow-soft ring-1 ring-line transition active:scale-[0.98]">
               <MessageCircle className="size-5" /> {t("home.share")}

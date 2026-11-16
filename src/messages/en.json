@@ -452,5 +452,34 @@
       "sendFailed": "We couldn't send the code. If it keeps happening, contact the app admin.",
       "offline": "No internet connection."
     }
+  },
+  "plan": {
+    "title": "Full-day suggestion",
+    "subtitle": "Gemini plans a full day of eating from your library",
+    "day": "For which day?",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "dayInfo": "{type} · goal {kcal} kcal · {protein} g protein",
+    "categories": "From which categories?",
+    "note": "Note (optional)",
+    "notePlaceholder": "e.g. no milk, light dinner",
+    "generate": "Suggest a full day",
+    "generating": "Gemini is preparing your plan… (may take ~30 s)",
+    "regenerate": "Another suggestion",
+    "totals": "Plan total",
+    "tapToLog": "Tap any food to log it — you type the amount.",
+    "aiNote": "Amounts are Gemini's suggestion; calories are calculated from your library values.",
+    "tooFew": "Pick categories with at least 3 foods.",
+    "homeButton": "Suggest a full day of eating",
+    "suggested": "Suggested: {amount} {unit}",
+    "savedFor": "Last suggestion ({date})",
+    "errors": {
+      "no_key": "Suggestions aren't set up (Gemini key missing).",
+      "rate_limit": "Gemini's free limit was reached. Try later.",
+      "busy": "Gemini is busy. Try again in a minute.",
+      "offline": "No internet connection.",
+      "auth": "Please sign in.",
+      "generic": "Couldn't prepare a suggestion. Try again."
+    }
   }
 }

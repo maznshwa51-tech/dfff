@@ -3,10 +3,10 @@
 // - ملفات Next الثابتة (/_next/static): من الكاش أولاً (أسماؤها تتغير مع كل بناء)
 // - /api: من الشبكة فقط (Gemini والتقارير تحتاج إنترنت)
 
-const VERSION = "v4";
+const VERSION = "v5";
 const PAGES_CACHE = `pages-${VERSION}`;
 const STATIC_CACHE = `static-${VERSION}`;
-const ROUTES = ["/", "/food", "/training", "/weight", "/stats", "/settings"];
+const ROUTES = ["/", "/food", "/training", "/weight", "/stats", "/settings", "/plan"];
 const EXTRA = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 async function precache() {

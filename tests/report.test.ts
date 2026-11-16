@@ -135,3 +135,25 @@ describe("الترجمة", () => {
     expect(keys(ar).sort()).toEqual(keys(en).sort());
   });
 });
+
+import { planTotals, validatePlan } from "@/lib/plan";
+describe("اقتراح يوم كامل", () => {
+  const foods = [
+    { id: "a", unit: "g" as const, refAmount: 100, kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
+    { id: "b", unit: "g" as const, refAmount: 100, kcal: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+    { id: "c", unit: "ml" as const, refAmount: 100, kcal: 61, protein: 3.2, carbs: 4.8, fat: 3.3 },
+  ];
+  it("يقبل الأكلات اللي من القائمة بس ويقرّب الكميات", () => {
+    const p = validatePlan({ meals: [{ meal: "lunch", items: [{ food_id: "a", amount: 152 }, { food_id: "ghost", amount: 100 }, { food_id: "b", amount: -5 }] }, { meal: "breakfast", items: [{ food_id: "c", amount: 5000 }] }], tip: "  يلا  " }, foods)!;
+    expect(p.meals.map((m) => m.meal)).toEqual(["breakfast", "lunch"]);
+    expect(p.meals[1].items).toEqual([{ foodId: "a", amount: 150 }]);
+    expect(p.meals[0].items[0].amount).toBe(1000);
+    expect(p.tip).toBe("يلا");
+    expect(planTotals(p, new Map(foods.map((f) => [f.id, f])))).toEqual({ kcal: 858, protein: 78.5, carbs: 48, fat: 38.4 });
+  });
+  it("يرفض الرد الغلط أو الفاضي", () => {
+    expect(validatePlan({ meals: [] }, foods)).toBeNull();
+    expect(validatePlan({ meals: [{ meal: "lunch", items: [{ food_id: "x", amount: 100 }] }] }, foods)).toBeNull();
+    expect(validatePlan("x", foods)).toBeNull();
+  });
+});
