@@ -157,3 +157,24 @@ describe("اقتراح يوم كامل", () => {
     expect(validatePlan("x", foods)).toBeNull();
   });
 });
+
+import { validateQuick } from "@/lib/quick";
+describe("تقدير السعرات السريعة", () => {
+  it("يطابق السعرات اللي كتبتها بالضبط", () => {
+    const r = validateQuick({ action: "estimate", protein: 3, carbs: 27, fat: 12, note: "كيكات" }, 210, false);
+    expect(r).toMatchObject({ type: "estimate" });
+    if (r?.type !== "estimate") throw 0;
+    expect(Math.round(r.protein * 4 + r.carbs * 4 + r.fat * 9)).toBeGreaterThanOrEqual(209);
+    expect(Math.round(r.protein * 4 + r.carbs * 4 + r.fat * 9)).toBeLessThanOrEqual(211);
+  });
+  it("يحسب القيمة الناقصة من السعرات", () => {
+    const r = validateQuick({ action: "estimate", protein: 25, carbs: 40, question: "null" }, 450, false);
+    expect(r).toMatchObject({ type: "estimate", protein: 25, carbs: 40, fat: 21.1 });
+  });
+  it("سؤال توضيحي، وبعد سؤالين لازم تقدير", () => {
+    expect(validateQuick({ action: "ask", question: "وش نوعه؟", options: ["دجاج", "لحم", "", "فلافل", "جبن"], protein: 0, carbs: 0, fat: 0 }, 450, false)).toEqual({ type: "question", question: "وش نوعه؟", options: ["دجاج", "لحم", "فلافل", "جبن"] });
+    expect(validateQuick({ action: "ask", question: "وش نوعه؟" }, 450, true)).toBeNull();
+    expect(validateQuick({ action: "estimate", protein: 1, carbs: 1, fat: 1 }, 900, false)).toBeNull(); // بعيد جداً
+    expect(validateQuick({ action: "estimate", protein: 10 }, 900, false)).toBeNull();
+  });
+});

@@ -163,7 +163,8 @@ function FoodLog() {
                         <div className="num text-xs text-muted">
                           {e.quick ? (
                             <>
-                              ⚡ {fmt(e.kcal)} {t("common.kcal")} · {t("quick.label")}
+                              ⚡ {fmt(e.kcal)} {t("common.kcal")}
+                              {e.protein > 0 ? ` · ${t("common.protein")} ${fmt(e.protein, 1)}` : ""} · {t("quick.label")}
                             </>
                           ) : (
                             <>

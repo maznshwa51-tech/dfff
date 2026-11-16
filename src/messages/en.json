@@ -425,7 +425,15 @@
     "save": "Add {n} kcal",
     "tapHint": "Tap to add calories",
     "label": "Quick add",
-    "note": "For small things you don't want in your library. Counts toward today's calories only (no protein, carbs or fat)."
+    "note": "For small things you don't want in your library. Gemini can estimate protein, carbs and fat, and may ask a short question.",
+    "estimate": "✨ Estimate protein, carbs & fat",
+    "estimating": "Gemini is estimating…",
+    "answerPlaceholder": "or type your answer",
+    "send": "Send",
+    "dontKnow": "Not sure, just estimate",
+    "estimated": "Gemini's estimate (edit any number):",
+    "stale": "You changed the description or calories. Estimate again.",
+    "withMacros": "Add {n} kcal with macros"
   },
   "accent": {
     "title": "Color theme",
